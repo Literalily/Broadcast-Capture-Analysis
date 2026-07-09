@@ -4,10 +4,10 @@ setlocal
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 set HF_HUB_DISABLE_SYMLINKS=1
 
-set "VENV=D:\WPy64-313130\notebooks\whisperx-env"
-set "IN=D:\Broadcast data\Liveline Recordings\Liveline"
-set "OUT=D:\Broadcast data\Liveline Recordings\Liveline\Subtitles"
-set "HF_TOKEN=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"
+set "VENV=C:\Users\PathTo\whisperx-env"
+set "IN=C:\PathTo\Recording"
+set "OUT=C:\PathTo\Recording_Subtitles"
+set "HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 call "%VENV%\Scripts\activate.bat"
 
