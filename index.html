@@ -18,9 +18,15 @@
     </header>
 
     <!-- ======================================================= -->
-    <div class="control-panel" style="border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h3>Injest New Broadcast Media Folder</h3>
-        <input type="text" id="webInPath" placeholder="D:\Media\The Late Late Show" style="width:300px; padding:6px;">
+    <div class="control-panel">
+        <h3>Transcribe Media Folder</h3>
+        <p>Use WhisperX to transcribe a video/audio file.</p>
+        <p>To do this, you must: <br>1. <strong>Paste the file path of the desired folder to be transcribed</strong>, (e.g. "D:\Broadcast
+            data\radio1\NewsAtOne") <br>Compatible file types: mp4 mkv mov avi m4v ts mp3 wav m4a flac <br><strong>2. Paste your
+            unique Hugging Face token.</strong> If you're not sure how to do this, follow the instructions in the
+            README file.</p>
+        <input type="text" id="webInPath" placeholder="File path (D:\Media\The Late Late Show)"
+            style="width:300px; padding:6px;">
         <input type="password" id="webHfToken" placeholder="HuggingFace Token (hf_...)"
             style="width:250px; padding:6px;">
         <button id="runBtn" onclick="sendTranscriptionJob()" style="padding:6px 12px; cursor:pointer;">Launch AI
@@ -51,7 +57,7 @@
                 const data = await response.json();
                 if (response.ok) {
                     feedback.style.color = "green";
-                    feedback.textContent = `Success! Transcription script triggered. Check terminal window. Target folder: ${data.output_folder}`;
+                    feedback.textContent = `Success! Transcription script triggered. Check terminal window. <br>Processing typically takes around 5 minutes to complete.<br>Target folder: ${data.output_folder}`;
                 } else {
                     feedback.style.color = "red";
                     feedback.textContent = `Error: ${data.detail}`;
