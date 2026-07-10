@@ -20,13 +20,13 @@ body {
 /* ── Footer ────────────────────────────────────────── */
 
 .footer {
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  background-color: #c41212;
-  color: #f4f6f8;
-  text-align: center;
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: #c41212;
+    color: #f4f6f8;
+    text-align: center;
 }
 
 /* ── Table of Contents ────────────────────────────────────────── */
@@ -248,6 +248,14 @@ li {
 small {
     color: #666;
     margin-right: 4px;
+}
+
+/* ── Transcribe Media Panel ───────────────────────────────────────── */
+.control-panel {
+    border: 1px solid #ccc;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
 }
 
 /* ── Toggle Switch ───────────────────────────────────────── */
