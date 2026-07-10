@@ -43,17 +43,7 @@ for %%E in (mp4 mkv mov avi m4v ts mp3 wav m4a flac) do (
             echo Running transcription and speaker diarization pipelines...
             echo ============================================================
 
-            whisperx "%%F" ^
-                --model large-v3 ^
-                --device cuda ^
-                --language en ^
-                --batch_size 8 ^
-                --compute_type float16 ^
-                --diarize ^"D:\Broadcast data\Dropoff-yCETDNuprR8mjNDN\downloads\downloads\radio1\JoeDuffysChristmasEveSpecial"
-                --hf_token "%HF_TOKEN%" ^
-                --output_dir "%OUT%" ^
-                --output_format json ^
-                --print_progress True
+            whisperx "%%F" --model large-v3 --device cuda --language en --batch_size 8 --compute_type float16 --diarize --hf_token "%HF_TOKEN%" --output_dir "%OUT%" --output_format json --print_progress True
 
             if errorlevel 1 (
                 echo ERROR: WhisperX execution structural failure on %%~nxF
