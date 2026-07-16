@@ -250,12 +250,35 @@ small {
     margin-right: 4px;
 }
 
-/* ── Transcribe Media Panel ───────────────────────────────────────── */
-.control-panel {
-    border: 1px solid #ccc;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
+
+/* ── Layout Cards ───────────────────────────────────────── */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    /* 2 per row */
+    gap: 20px;
+}
+
+.card {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+    height: 450px;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    transition: 0.2s;
 }
 
 /* ── Toggle Switch ───────────────────────────────────────── */
@@ -384,4 +407,101 @@ input:checked+.slider:before {
 
 .subtitle-line {
     margin: 8px 0;
+}
+
+/* ── Subtitle Analysis ───────────────────────────────────────── */
+.subtitle-line {
+    margin: 8px 0;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+.subtitle-line:hover {
+    background-color: #e2e8f0;
+}
+
+/* ── subtitle and video side by side layout ───────────────────────────────────────── */
+
+.viewer-container {
+    display: flex;
+    gap: 20px;
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 0 10px;
+}
+
+/* Left side takes up 60% of the space */
+.viewer-main {
+    flex: 3;
+    height: 800px; /* Increased height so you can scroll comfortably */
+}
+
+/* Right side takes up 40% of the space */
+.viewer-sidebar {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Sub-cards on the right split the height */
+.viewer-sidebar .media-card {
+    height: 320px;
+}
+
+.viewer-sidebar .analysis-card {
+    height: 440px;
+}
+
+/* ── AI Overview ───────────────────────────────────────── */
+.ai-overview-container {
+    background-color: #fdf0f0;
+    border-left: 5px solid #c41212;
+    border-radius: 8px;
+    padding: 18px;
+    margin: 15px 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.ai-overview-status {
+    color: #651616;
+    font-size: 14px;
+    font-style: italic;
+    font-weight: bold;
+    margin: 0;
+    padding: 0;
+}
+
+.ai-overview-header {
+    font-weight: bold;
+    color: #531414;
+    font-size: 15px;
+    margin-bottom: 8px;
+    padding: 0;
+}
+
+.ai-overview-body {
+    color: #1f2937;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 0;
+}
+
+.ai-overview-body p {
+    margin: 0;
+    padding: 0;
+}
+
+.ai-bullet-list {
+    margin: 0;
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.ai-bullet-list li {
+    margin-bottom: 6px;
+    list-style-type: disc;
+    padding: 0;
 }
