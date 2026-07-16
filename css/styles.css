@@ -17,9 +17,14 @@ body {
     color: #222;
 }
 
+#page-container {
+    position: relative;
+    min-height: 100vh;
+}
+
 /* ── Footer ────────────────────────────────────────── */
 
-.footer {
+footer {
     position: fixed;
     left: 0;
     bottom: 0;
@@ -27,6 +32,7 @@ body {
     background-color: #c41212;
     color: #f4f6f8;
     text-align: center;
+    display: block;
 }
 
 /* ── Table of Contents ────────────────────────────────────────── */
@@ -435,7 +441,8 @@ input:checked+.slider:before {
 /* Left side takes up 60% of the space */
 .viewer-main {
     flex: 3;
-    height: 800px; /* Increased height so you can scroll comfortably */
+    height: 800px;
+    /* Increased height so you can scroll comfortably */
 }
 
 /* Right side takes up 40% of the space */
@@ -452,7 +459,7 @@ input:checked+.slider:before {
 }
 
 .viewer-sidebar .analysis-card {
-    height: 440px;
+    height: 460px;
 }
 
 /* ── AI Overview ───────────────────────────────────────── */
@@ -504,4 +511,27 @@ input:checked+.slider:before {
     margin-bottom: 6px;
     list-style-type: disc;
     padding: 0;
+}
+
+/* ── AI Button ───────────────────────────────────────── */
+.ai-btn {
+    background-color: #c41212;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    display: inline-block;
+    margin-top: 5px;
+}
+
+.ai-btn:hover {
+    background-color: #801515;
+}
+
+.ai-btn:active {
+    transform: scale(0.98);
 }

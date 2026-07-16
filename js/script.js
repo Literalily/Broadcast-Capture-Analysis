@@ -1,13 +1,30 @@
-
-// Import hugging face
+// Import hugging face + use GPU to run hugging face ai with WebGPU
 import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
-// lazy loading (getSummarizer) for performance
+
+// Check if the browser supports WebGPU
+async function checkWebGPUSupport() {
+  if (!navigator.gpu) return false;
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    return !!adapter;
+  } catch (e) {
+    return false;
+  }
+}
+
 let summarizerPromise = null;
 
+// This function will now safely load the model ONLY when the user clicks "Generate"
 async function getSummarizer() {
     if (!summarizerPromise) {
-        // Initialize the model lazily on first run
-        summarizerPromise = pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
+        const supportsWebGPU = await checkWebGPUSupport();
+        
+        // Initialize the model lazily with memory-optimized configs
+        summarizerPromise = pipeline('summarization', 'Xenova/distilbart-cnn-6-6', {
+            device: supportsWebGPU ? 'webgpu' : 'wasm',
+            // fp16 is optimal for WebGPU; q8 (8-bit quantization) prevents WASM OOM crashes
+            dtype: supportsWebGPU ? 'fp16' : 'q8', 
+        });
     }
     return summarizerPromise;
 }
@@ -46,11 +63,10 @@ const colorPool = [
 ];
 
 // take chunks of the etxt at a time to not overload the AI
-/**
- * Splits segment array texts into safe, logical character chunks.
- * Standardizes sizes below 3000 characters to keep browser-based LLMs from overflowing memory.
- */
-function chunkText(segments, maxChunkChars = 3000) {
+// Splits segment array texts into safe, logical character chunks.
+//  * Standardizes sizes below 3000 characters to keep browser-based LLMs from overflowing memory.
+
+function chunkText(segments, maxChunkChars = 1500) {
     const chunks = [];
     let currentChunk = "";
 
@@ -75,48 +91,106 @@ function chunkText(segments, maxChunkChars = 3000) {
 
 /**
  * Background function that processes, chunks, and summarizes subtitle files.
+ * Hybrid Mode: Uses the Cloud API if an HF Token is provided, otherwise falls back to the local WebGPU/WASM engine.
  */
 async function generateAIOverview(segments, uiContainer) {
     try {
-        uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Extracting text structures...</p>`;
+        uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Structuring text data...</p>`;
 
-        const chunks = chunkText(segments, 3000);
-        if (chunks.length === 0) {
+        const allChunks = chunkText(segments, 3500);
+        if (allChunks.length === 0) {
             uiContainer.innerHTML = `<p class="ai-overview-status">🤖 No content found to summarize.</p>`;
             return;
         }
 
-        uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Initializing overview engine (takes a minute on first run)...</p>`;
-        const summarizer = await getSummarizer();
+        // SAFETY CAP: Max 3 chunks processed to prevent wait timeouts
+        const maxChunks = 3;
+        const chunksToProcess = allChunks.slice(0, maxChunks);
+
+        // 1. Retrieve the token from your existing Card 1 input field
+        const hfTokenInput = document.getElementById('webHfToken');
+        const hfToken = hfTokenInput ? hfTokenInput.value.trim() : "";
 
         const summaries = [];
-        for (let i = 0; i < chunks.length; i++) {
-            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Analyzing narrative chunk ${i + 1} of ${chunks.length}...</p>`;
 
-            const output = await summarizer(chunks[i], {
-                max_length: 80, // Limit summary size per chunk
-                min_length: 25,
-            });
+        if (hfToken) {
+            // --- CLOUD API PATH ---
+            uiContainer.innerHTML = `<p class="ai-overview-status">☁️ Connecting to Hugging Face Cloud API...</p>`;
+            
+            // We'll use bart-large-cnn for incredibly polished, highly accurate summaries
+            const modelId = 'facebook/bart-large-cnn'; 
+            
+            for (let i = 0; i < chunksToProcess.length; i++) {
+                uiContainer.innerHTML = `<p class="ai-overview-status">☁️ Cloud API: Summarizing chunk ${i + 1} of ${chunksToProcess.length}...</p>`;
+                
+                const response = await fetch(`https://api-inference.huggingface.co/models/${modelId}`, {
+                    headers: {
+                        "Authorization": `Bearer ${hfToken}`,
+                        "Content-Type": "application/json"
+                    },
+                    method: "POST",
+                    body: JSON.stringify({
+                        inputs: chunksToProcess[i],
+                        parameters: {
+                            max_length: 80,
+                            min_length: 25
+                        },
+                        options: {
+                            // ESSENTIAL: If the cloud model is "sleeping", this tells Hugging Face 
+                            // to spin it up and wait instead of throwing a 503 error immediately.
+                            wait_for_model: true 
+                        }
+                    })
+                });
 
-            if (output && output[0] && output[0].summary_text) {
-                summaries.push(output[0].summary_text);
+                const result = await response.json();
+
+                if (response.ok && Array.isArray(result) && result[0]?.summary_text) {
+                    summaries.push(result[0].summary_text);
+                } else if (result.error) {
+                    throw new Error(`HF API Error: ${result.error}`);
+                } else {
+                    throw new Error(`Unexpected cloud response format.`);
+                }
+            }
+        } else {
+            // --- LOCAL WEB ASSEMBLY / WEBGPU FALLBACK ---
+            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Loading local AI engine (first run takes about 30 seconds)...</p>`;
+            const summarizer = await getSummarizer();
+
+            for (let i = 0; i < chunksToProcess.length; i++) {
+                uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Local GPU: Summarizing chunk ${i + 1} of ${chunksToProcess.length}... (Please do not close tab)</p>`;
+
+                const output = await summarizer(chunksToProcess[i], {
+                    max_length: 50,    
+                    min_length: 15,
+                    num_beams: 1,      
+                    temperature: 1.0,
+                });
+
+                if (output && output[0] && output[0].summary_text) {
+                    summaries.push(output[0].summary_text);
+                }
             }
         }
 
-        // Format and render summaries. Multi-chunk files show neat highlights; single chunks present clean text.
         let finalHTML = "";
         if (summaries.length > 1) {
             finalHTML = `<ul class="ai-bullet-list">` +
                 summaries.map(s => `<li>${s.trim()}</li>`).join('') +
                 `</ul>`;
+            if (allChunks.length > maxChunks) {
+                finalHTML += `<p style="font-size: 11px; color: #666; margin-top: 10px; font-style: italic;">Note: Only the first ${maxChunks} parts of this long transcript were summarized to keep performance fast.</p>`;
+            }
         } else if (summaries.length === 1) {
             finalHTML = `<p>${summaries[0]}</p>`;
         } else {
             finalHTML = `<p>Could not generate transcript overview.</p>`;
         }
 
+        const sourceLabel = hfToken ? "☁️ Cloud API" : "🤖 Local AI Engine";
         uiContainer.innerHTML = `
-            <div class="ai-overview-header">🤖 AI-Generated Summary:</div>
+            <div class="ai-overview-header">${sourceLabel} Summary:</div>
             <div class="ai-overview-body">${finalHTML}</div>
         `;
 
@@ -182,23 +256,25 @@ function renderSubtitles() {
 
         // asection header (File name \n AI overview of file)
         listEl.insertAdjacentHTML('beforeend', `
-                <section class="file-group" id="${uniqueFileId}">
-                    <h2 class="subtitleHeader">📄 File: ${fileData.name}</h2>
-                    <div id="ai-overview-${uniqueFileId}" class="ai-overview-container">
-                        <p class="ai-overview-status">🤖 Waiting to analyze sequence...</p>
-                    </div>
-                    <ul class="subtitle-group"></ul>
-                </section>
-                `);
+            <section class="file-group" id="${uniqueFileId}">
+                <h2 class="subtitleHeader">📄 File: ${fileData.name}</h2>
+                <div id="ai-overview-${uniqueFileId}" class="ai-overview-container">
+                    <p class="ai-overview-status" style="margin-bottom: 10px;">🤖 Local AI Summary is ready to analyze this file.</p>
+                    <button class="ai-btn" id="btn-ai-${uniqueFileId}">✨ Generate Summary</button>
+                </div>
+                <ul class="subtitle-group"></ul>
+            </section>
+        `);
 
-        // Trigger background AI processing without locking the main browser UI thread
-        if (fileData.segments && fileData.segments.length > 0) {
-            const overviewBox = document.getElementById(`ai-overview-${uniqueFileId}`);
+        // Set up click listener for button instead of auto-running immediately
+        const overviewBox = document.getElementById(`ai-overview-${uniqueFileId}`);
+        const aiButton = document.getElementById(`btn-ai-${uniqueFileId}`);
+
+        aiButton.addEventListener('click', () => {
             generateAIOverview(fileData.segments, overviewBox);
-        }
+        });
 
-        const currentSubtitleList =
-            document.querySelector(`#${uniqueFileId} .subtitle-group`);
+        const currentSubtitleList = document.querySelector(`#${uniqueFileId} .subtitle-group`);
 
         if (fileData.segments) {
             fileData.segments.forEach(segment => {

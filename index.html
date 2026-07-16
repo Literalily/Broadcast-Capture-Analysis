@@ -10,7 +10,6 @@
     <!-- <script src="js/script.js" defer></script> -->
     <script type="module" src="js/script.js"></script>
 
-
 </head>
 
 <body>
@@ -21,177 +20,181 @@
     </header>
 
     <!-- ======================================================= -->
+    <div id="page-container">
+        <div class="dashboard-grid">
 
-    <div class="dashboard-grid">
-
-        <!-- CARD 1 -->
-        <div class="card">
-            <h3>Option 1: Transcribe Media Folder</h3>
-            <p>Use WhisperX to transcribe a video/audio file.</p>
-            <p>To do this, you must: <br>1. <strong>Paste the file path of the desired folder to be
-                    transcribed</strong>,
-                (e.g. "D:\Broadcast
-                data\radio1\NewsAtOne") <br>Compatible file types: mp4 mkv mov avi m4v ts mp3 wav m4a flac
-                <br><strong>2.
-                    Paste your
-                    unique Hugging Face token.</strong> If you're not sure how to do this, follow the instructions in
-                the
-                README file.
-            </p>
-            <input type="file" id="webInPath" name="file"
-                accept=".mp4, .mkv, .mov, .avi, .m4v, .ts, .mp3, .wav, .m4a, .flac" multiple />
-            <!-- <input type="text" id="webInPath" placeholder="File path (D:\Media\The Late Late Show)" style="width:300px; padding:6px;"> -->
-            <input type="password" id="webHfToken" placeholder="HuggingFace Token (hf_...)"
-                style="width:250px; padding:6px;">
-            <button id="runBtn" onclick="sendTranscriptionJob()" style="padding:6px 12px; cursor:pointer;">Launch AI
-                Pipeline</button>
-            <p id="statusFeedback" style="font-weight:bold; color:blue;"></p>
-        </div>
-
-        <script>
-            async function sendTranscriptionJob() {
-                const inputPath = document.getElementById('webInPath').value;
-                const hfToken = document.getElementById('webHfToken').value;
-                const feedback = document.getElementById('statusFeedback');
-
-                if (!inputPath || !hfToken) {
-                    alert("Please specify both folder locations and your HF developer authentication token.");
-                    return;
-                }
-
-                feedback.textContent = "Sending execution command to pipeline server...";
-
-                try {
-                    const response = await fetch('http://127.0.0.1:8000/api/transcribe', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ input_path: inputPath, hf_token: hfToken })
-                    });
-
-                    const data = await response.json();
-                    if (response.ok) {
-                        feedback.style.color = "green";
-                        feedback.textContent = `Success! Transcription script triggered. Check terminal window. <br>Processing typically takes around 5 minutes to complete.<br>Target folder: ${data.output_folder}`;
-                    } else {
-                        feedback.style.color = "red";
-                        feedback.textContent = `Error: ${data.detail}`;
-                    }
-                } catch (err) {
-                    feedback.style.color = "red";
-                    feedback.textContent = "Could not connect to the local Python execution server backend.";
-                }
-            }
-        </script>
-
-        <!-- CARD 2 -->
-        <div class="card">
-            <h3>Option 2: Open a subtitle file</h3>
-            <p>Supports JSON files processed through WhisperX. Please select both the JSON subtitle file and the
-                original video/audio file.</p>
-            <form method="post" enctype="multipart/form-data">
-                <input type="file" id="file" name="file" accept=".json, video/*, audio/*" multiple />
-                <!-- Toggle start/end times -->
-                <br>
-                <label class="switch">
-                    <input type="checkbox" id="mySwitch">
-                    <span class="slider round"></span>
-                </label>
-                <p id="status">Start/End Times Visible</p>
-
-                <!-- Toggle speaker visibility -->
-                <br>
-                <label class="switch">
-                    <input type="checkbox" id="mySpeakerSwitch">
-                    <span class="slider round"></span>
-                </label>
-                <p id="speakerStatus">Speaker Always Visible</p>
-            </form>
-        </div>
-    </div>
-
-    <!-- TABLE OF CONTENTS -->
-    <div id="toc-container">
-        <h3>Search:</h3>
-        <div class="search-container">
-            <input type="text" id="searchInput" class="search-input" placeholder="Search subtitles...">
-            <button type="button" id="searchButton" class="search-button">Search</button>
-        </div>
-        <h3><br>Table of Contents:</h3>
-        <ul id="toc-list"></ul>
-    </div>
-
-    <div class="viewer-container" id="viewer-container" style="display: none;">
-        <!-- CARD 3 - SUBTITLES -->
-        <div class="card viewer-main">
-            <h3>Subtitles</h3>
-            <div id="subtitle-list"></div>
-        </div>
-
-        <!-- CARD 4 - VIDEO -->
-        <div class="viewer-sidebar">
-            <!-- VIDEO CARD -->
-            <div class="card media-card">
-                <h3>Video</h3>
-                <video id="subtitleVideo" width="100%" controls>
-                    Your browser does not support the video tag.
-                </video>
+            <!-- CARD 1 -->
+            <div class="card">
+                <h3>Option 1: Transcribe Media Folder</h3>
+                <p>Use WhisperX to transcribe a video/audio file.</p>
+                <p>To do this, you must: <br>1. <strong>Paste the file path of the desired folder to be
+                        transcribed</strong>,
+                    (e.g. "D:\Broadcast
+                    data\radio1\NewsAtOne") <br>Compatible file types: mp4 mkv mov avi m4v ts mp3 wav m4a flac
+                    <br><strong>2.
+                        Paste your
+                        unique Hugging Face token.</strong> If you're not sure how to do this, follow the instructions
+                    in the README file.
+                </p>
+                <!-- <input type="file" id="webInPath" name="file"
+                    accept=".mp4, .mkv, .mov, .avi, .m4v, .ts, .mp3, .wav, .m4a, .flac" multiple /> -->
+                <input type="text" id="webInPath" placeholder="File path (D:\Media\The Late Late Show)"
+                    style="width:300px; padding:6px;">
+                <input type="password" id="webHfToken" placeholder="HuggingFace Token (hf_...)"
+                    style="width:250px; padding:6px;">
+                <button id="runBtn" onclick="sendTranscriptionJob()" style="padding:6px 12px; cursor:pointer;">Launch AI
+                    Pipeline</button>
+                <p id="statusFeedback" style="font-weight:bold; color:blue;"></p>
             </div>
 
-            <!-- CARD 5 - ANALYSIS -->
-            <div class="card analysis-card">
-                <h3>Sentiment Analysis</h3>
-                <div id="selected-line-analysis"
-                    style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-left: 4px solid #2196F3; border-radius: 4px;">
-                    <p><em>Click a subtitle line to analyze its sentiment.</em></p>
+            <script>
+                async function sendTranscriptionJob() {
+                    const inputPath = document.getElementById('webInPath').value;
+                    const hfToken = document.getElementById('webHfToken').value;
+                    const feedback = document.getElementById('statusFeedback');
+
+                    if (!inputPath || !hfToken) {
+                        alert("Please specify both folder locations and your HF developer authentication token.");
+                        return;
+                    }
+
+                    feedback.textContent = "Sending execution command to pipeline server...";
+
+                    try {
+                        const response = await fetch('http://127.0.0.1:8000/api/transcribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ input_path: inputPath, hf_token: hfToken })
+                        });
+
+                        const data = await response.json();
+                        if (response.ok) {
+                            feedback.style.color = "green";
+                            feedback.textContent = `Success! Transcription script triggered. Check terminal window. <br>Processing typically takes around 5 minutes to complete.<br>Target folder: ${data.output_folder}`;
+                        } else {
+                            feedback.style.color = "red";
+                            feedback.textContent = `Error: ${data.detail}`;
+                        }
+                    } catch (err) {
+                        feedback.style.color = "red";
+                        feedback.textContent = "Could not connect to the local Python execution server backend.";
+                    }
+                }
+            </script>
+
+            <!-- CARD 2 -->
+            <div class="card">
+                <h3>Option 2: Open a subtitle file</h3>
+                <p>Supports JSON files processed through WhisperX. Please select both the JSON subtitle file and the
+                    original video/audio file.</p>
+                <form method="post" enctype="multipart/form-data">
+                    <input type="file" id="file" name="file" accept=".json, video/*, audio/*" multiple />
+                    <!-- Toggle start/end times -->
+                    <br>
+                    <label class="switch">
+                        <input type="checkbox" id="mySwitch">
+                        <span class="slider round"></span>
+                    </label>
+                    <p id="status">Start/End Times Visible</p>
+
+                    <!-- Toggle speaker visibility -->
+                    <br>
+                    <label class="switch">
+                        <input type="checkbox" id="mySpeakerSwitch">
+                        <span class="slider round"></span>
+                    </label>
+                    <p id="speakerStatus">Speaker Always Visible</p>
+                </form>
+            </div>
+        </div>
+
+        <!-- TABLE OF CONTENTS -->
+        <div id="toc-container">
+            <h3>Search:</h3>
+            <div class="search-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search subtitles...">
+                <button type="button" id="searchButton" class="search-button">Search</button>
+            </div>
+            <h3><br>Table of Contents:</h3>
+            <ul id="toc-list"></ul>
+        </div>
+
+        <div class="viewer-container" id="viewer-container" style="display: none;">
+            <!-- CARD 3 - SUBTITLES -->
+            <div class="card viewer-main">
+                <h3>Subtitles</h3>
+                <div id="subtitle-list"></div>
+            </div>
+
+            <!-- CARD 4 - VIDEO -->
+            <div class="viewer-sidebar">
+                <!-- VIDEO CARD -->
+                <div class="card media-card">
+                    <h3>Video</h3>
+                    <video id="subtitleVideo" width="100%" controls>
+                        Your browser does not support the video tag.
+                    </video>
                 </div>
 
-                <!-- The button has been removed -->
-                <p id="result" style="margin-top: 15px;"></p>
+                <!-- CARD 5 - ANALYSIS -->
+                <div class="card analysis-card">
+                    <h3>Sentiment Analysis</h3>
+                    <div id="selected-line-analysis"
+                        style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-left: 4px solid #2196F3; border-radius: 4px;">
+                        <p><em>Click a subtitle line to analyze its sentiment.</em></p>
+                    </div>
 
-                <script type="module">
-                    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
+                    <!-- The button has been removed -->
+                    <p id="result" style="margin-top: 15px;"></p>
 
-                    let classifier;
+                    <script type="module">
+                        import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
 
-                    // Initialize the pipeline
-                    async function init() {
-                        document.getElementById('result').innerText = "Loading model (this takes a moment on first load)...";
-                        classifier = await pipeline('sentiment-analysis');
-                        document.getElementById('result').innerText = "Model ready! Click a subtitle to see its sentiment.";
-                    }
+                        let classifierPromise = null;
 
-                    // Expose the analysis function to the global window object
-                    // so that script.js can trigger it when a subtitle is clicked
-                    window.analyzeText = async function (text) {
-                        if (!classifier) {
-                            document.getElementById('result').innerText = "Model is still loading, please wait...";
-                            return;
+                        // Lazy load the classifier
+                        async function getClassifier() {
+                            if (!classifierPromise) {
+                                classifierPromise = pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english', {
+                                    device: 'wasm',
+                                    dtype: 'q8' // Forces 8-bit quantization to dramatically cut memory usage
+                                });
+                            }
+                            return classifierPromise;
                         }
 
-                        document.getElementById('result').innerText = "Analyzing...";
+                        // glbal so script.js can call it when a subtitle line is clicked
+                        window.analyzeText = async function (text) {
+                            const resultText = document.getElementById('result');
+                            resultText.innerText = "⏳ Analyzing sentiment... (first run will take some time)";
 
-                        try {
-                            const [output] = await classifier(text);
-                            // Output example: { label: 'POSITIVE', score: 0.9998 }
-                            document.getElementById('result').innerHTML = `<strong>Sentiment:</strong> ${output.label} <br><strong>Confidence:</strong> ${(output.score * 100).toFixed(1)}%`;
-                        } catch (error) {
-                            console.error("Analysis failed:", error);
-                            document.getElementById('result').innerText = "Error analyzing text.";
-                        }
-                    };
+                            try {
+                                const classifier = await getClassifier();
+                                const output = await classifier(text);
 
+                                const label = output[0].label;
+                                const score = (output[0].score * 100).toFixed(1);
 
-                    init();
-                </script>
+                                // Apply simple colors based on sentiment
+                                const color = label === 'POSITIVE' ? 'green' : (label === 'NEGATIVE' ? 'red' : 'black');
+
+                                resultText.innerHTML = `<strong>AI Result:</strong> <span style="color: ${color};">${label}</span> (${score}%)`;
+                            } catch (error) {
+                                console.error("Sentiment AI error:", error);
+                                resultText.innerHTML = `<span style="color: red;">⚠️ AI Failed: ${error.message}</span>`;
+                            }
+                        };
+                    </script>
+                </div>
+
             </div>
-
         </div>
     </div>
 
     <!-- Footer -->
-    <div class="footer">
+    <footer>
         <p>QUB Electronics, Electrical Engineering and Computer Science</p>
-    </div>
+    </footer>
 
 
 </body>
