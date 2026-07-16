@@ -40,8 +40,8 @@ footer {
     /* changes size dynamically depending on how many files are selected */
     display: none;
     background-color: #ffffff;
-    max-width: 600px;
-    max-height: 300px;
+    max-width: 500px;
+    max-height: 500px;
     margin: 20px auto;
     padding: 20px;
     border-radius: 6px;
@@ -433,19 +433,23 @@ input:checked+.slider:before {
 .viewer-container {
     display: flex;
     gap: 20px;
-    max-width: 1200px;
+    max-width: 2000px;
     margin: 20px auto;
     padding: 0 10px;
 }
 
-/* Left side takes up 60% of the space */
+.viewer-left {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
 .viewer-main {
     flex: 3;
     height: 800px;
-    /* Increased height so you can scroll comfortably */
 }
 
-/* Right side takes up 40% of the space */
 .viewer-sidebar {
     flex: 2;
     display: flex;
