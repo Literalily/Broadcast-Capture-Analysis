@@ -1,0 +1,507 @@
+/* ── Reset ────────────────────────────────────────── */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 10px;
+}
+
+html {
+    /* helps when scrolling with the table of contents so it looks neater */
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    font-size: 17px;
+    background-color: #f4f6f8;
+    color: #222;
+}
+
+/* ── Footer ────────────────────────────────────────── */
+
+.footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: #c41212;
+    color: #f4f6f8;
+    text-align: center;
+}
+
+/* ── Table of Contents ────────────────────────────────────────── */
+#toc-container {
+    /* changes size dynamically depending on how many files are selected */
+    display: none;
+    background-color: #ffffff;
+    max-width: 600px;
+    max-height: 300px;
+    margin: 20px auto;
+    padding: 20px;
+    border-radius: 6px;
+    border-left: 5px solid #c41212;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+#toc-container h3 {
+    color: #333;
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#toc-list {
+    list-style-type: decimal;
+    padding-left: 20px;
+}
+
+#toc-list li {
+    margin-bottom: 6px;
+}
+
+#toc-list a {
+    color: #c41212;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 14px;
+    transition: color 0.2s ease;
+}
+
+#toc-list a:hover {
+    color: #222;
+    text-decoration: underline;
+}
+
+/* scrollbar */
+#toc-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+#toc-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+#toc-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+#toc-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* ── Formatting ────────────────────────────────────────── */
+
+label {
+    display: block;
+    font: 1rem "Fira Sans", sans-serif;
+}
+
+input,
+label {
+    margin: 0.4rem 0;
+}
+
+/* ── LAYOUT ───────────────────────────────────────── */
+.layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ── Header ───────────────────────────────────────── */
+.header {
+    background-color: #c41212;
+    color: whitesmoke;
+    padding: 25px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2.5em;
+    margin: 0;
+}
+
+nav ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+nav ul li {
+    display: inline;
+    margin: 0 15px;
+}
+
+nav ul li a {
+    color: white;
+    text-decoration: underline;
+    font-weight: bold;
+}
+
+#file {
+    color: rgb(0, 0, 0);
+    font-size: 18px;
+    padding: 5px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.button {
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+}
+
+.file-section {
+    list-style: none;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #ccc;
+    padding-bottom: 8px;
+}
+
+.subtitleHeader {
+    color: #333;
+    font-size: 1.4rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── Speaker Colours ───────────────────────────────────────── */
+
+.color-red {
+    color: #e63946;
+    font-weight: bold;
+}
+
+.color-orange {
+    color: #f4a261;
+    font-weight: bold;
+}
+
+.color-green {
+    color: #2a9d8f;
+    font-weight: bold;
+}
+
+.color-blue {
+    color: #457b9d;
+    font-weight: bold;
+}
+
+.color-purple {
+    color: #8338ec;
+    font-weight: bold;
+}
+
+.color-pink {
+    color: #ff006e;
+    font-weight: bold;
+}
+
+.color-teal {
+    color: #05d4b9;
+    font-weight: bold;
+}
+
+.color-darkred {
+    color: #aa0e0e;
+    font-weight: bold;
+}
+
+.color-burnt {
+    color: #aa590e;
+    font-weight: bold;
+}
+
+.color-lime {
+    color: #a0aa0e;
+    font-weight: bold;
+}
+
+.color-magenta {
+    color: #aa0e69;
+    font-weight: bold;
+}
+
+.color-navy {
+    color: #044469;
+    font-weight: bold;
+}
+
+li {
+    margin-bottom: 8px;
+    list-style-type: none;
+}
+
+small {
+    color: #666;
+    margin-right: 4px;
+}
+
+
+/* ── Layout Cards ───────────────────────────────────────── */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    /* 2 per row */
+    gap: 20px;
+}
+
+.card {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+    height: 450px;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    transition: 0.2s;
+}
+
+/* ── Toggle Switch ───────────────────────────────────────── */
+
+/* The switch - the box around the slider */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 35px;
+}
+
+/* Hide default HTML checkbox */
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* The slider */
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+
+input:checked+.slider {
+    background-color: #2196F3;
+}
+
+input:focus+.slider {
+    box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked+.slider:before {
+    -webkit-transform: translateX(26px);
+    -ms-transform: translateX(26px);
+    transform: translateX(26px);
+}
+
+/* Rounded sliders */
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+/* ── Search Bar ───────────────────────────────────────── */
+
+.search-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto;
+    position: relative;
+}
+
+.search-input {
+    flex: 1;
+    width: 100%;
+    padding: 10px 15px;
+    font-size: 15px;
+    border: 1px solid #ccc;
+    border-radius: 25px;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: #2196F3;
+}
+
+.search-button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 25px;
+    background: #c41212;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.search-button:hover {
+    background: #990d0d;
+}
+
+@media screen and (max-width: 600px) {
+    .search-input {
+        font-size: 14px;
+        padding: 8px;
+        width: calc(100% - 20px);
+        margin: auto;
+    }
+}
+
+.file-group {
+    margin: 30px 0;
+}
+
+.subtitle-group {
+    padding-left: 20px;
+}
+
+.subtitle-line {
+    margin: 8px 0;
+}
+
+/* ── Subtitle Analysis ───────────────────────────────────────── */
+.subtitle-line {
+    margin: 8px 0;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+.subtitle-line:hover {
+    background-color: #e2e8f0;
+}
+
+/* ── subtitle and video side by side layout ───────────────────────────────────────── */
+
+.viewer-container {
+    display: flex;
+    gap: 20px;
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 0 10px;
+}
+
+/* Left side takes up 60% of the space */
+.viewer-main {
+    flex: 3;
+    height: 800px; /* Increased height so you can scroll comfortably */
+}
+
+/* Right side takes up 40% of the space */
+.viewer-sidebar {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Sub-cards on the right split the height */
+.viewer-sidebar .media-card {
+    height: 320px;
+}
+
+.viewer-sidebar .analysis-card {
+    height: 440px;
+}
+
+/* ── AI Overview ───────────────────────────────────────── */
+.ai-overview-container {
+    background-color: #fdf0f0;
+    border-left: 5px solid #c41212;
+    border-radius: 8px;
+    padding: 18px;
+    margin: 15px 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.ai-overview-status {
+    color: #651616;
+    font-size: 14px;
+    font-style: italic;
+    font-weight: bold;
+    margin: 0;
+    padding: 0;
+}
+
+.ai-overview-header {
+    font-weight: bold;
+    color: #531414;
+    font-size: 15px;
+    margin-bottom: 8px;
+    padding: 0;
+}
+
+.ai-overview-body {
+    color: #1f2937;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 0;
+}
+
+.ai-overview-body p {
+    margin: 0;
+    padding: 0;
+}
+
+.ai-bullet-list {
+    margin: 0;
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.ai-bullet-list li {
+    margin-bottom: 6px;
+    list-style-type: disc;
+    padding: 0;
+}
