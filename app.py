@@ -137,7 +137,7 @@ def run_transcription_pipeline():
                 continue
 
             # 3. Programmatically establish output pathway structure
-            output_dir = os.path.join(input_dir, "Subtitles")
+            output_dir = input_dir
 
             print("\n" + "-"*60)
             print("INITIALIZING PIPELINE CONFIGURATION:")

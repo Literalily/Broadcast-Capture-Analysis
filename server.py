@@ -36,7 +36,7 @@ async def start_transcription(data: TranscriptionRequest):
         raise HTTPException(status_code=400, detail="Provided broadcast folder path does not exist.")
     
     # 2. Automatically determine output path and script location
-    output_dir = os.path.join(input_dir, "Subtitles")
+    output_dir = input_dir
     script_dir = os.path.dirname(os.path.abspath(__file__))
     batch_script = os.path.join(script_dir, "WhisperXDiarize.bat")
     

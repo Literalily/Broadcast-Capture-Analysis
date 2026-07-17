@@ -3,13 +3,13 @@ import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers
 
 // Check if the browser supports WebGPU
 async function checkWebGPUSupport() {
-  if (!navigator.gpu) return false;
-  try {
-    const adapter = await navigator.gpu.requestAdapter();
-    return !!adapter;
-  } catch (e) {
-    return false;
-  }
+    if (!navigator.gpu) return false;
+    try {
+        const adapter = await navigator.gpu.requestAdapter();
+        return !!adapter;
+    } catch (e) {
+        return false;
+    }
 }
 
 let summarizerPromise = null;
@@ -18,12 +18,12 @@ let summarizerPromise = null;
 async function getSummarizer() {
     if (!summarizerPromise) {
         const supportsWebGPU = await checkWebGPUSupport();
-        
+
         // Initialize the model lazily with memory-optimized configs
         summarizerPromise = pipeline('summarization', 'Xenova/distilbart-cnn-6-6', {
             device: supportsWebGPU ? 'webgpu' : 'wasm',
             // fp16 is optimal for WebGPU; q8 (8-bit quantization) prevents WASM OOM crashes
-            dtype: supportsWebGPU ? 'fp16' : 'q8', 
+            dtype: supportsWebGPU ? 'fp16' : 'q8',
         });
     }
     return summarizerPromise;
@@ -116,13 +116,13 @@ async function generateAIOverview(segments, uiContainer) {
         if (hfToken) {
             // --- CLOUD API PATH ---
             uiContainer.innerHTML = `<p class="ai-overview-status">☁️ Connecting to Hugging Face Cloud API...</p>`;
-            
+
             // We'll use bart-large-cnn for incredibly polished, highly accurate summaries
-            const modelId = 'facebook/bart-large-cnn'; 
-            
+            const modelId = 'facebook/bart-large-cnn';
+
             for (let i = 0; i < chunksToProcess.length; i++) {
                 uiContainer.innerHTML = `<p class="ai-overview-status">☁️ Cloud API: Summarizing chunk ${i + 1} of ${chunksToProcess.length}...</p>`;
-                
+
                 const response = await fetch(`https://api-inference.huggingface.co/models/${modelId}`, {
                     headers: {
                         "Authorization": `Bearer ${hfToken}`,
@@ -138,7 +138,7 @@ async function generateAIOverview(segments, uiContainer) {
                         options: {
                             // ESSENTIAL: If the cloud model is "sleeping", this tells Hugging Face 
                             // to spin it up and wait instead of throwing a 503 error immediately.
-                            wait_for_model: true 
+                            wait_for_model: true
                         }
                     })
                 });
@@ -162,9 +162,9 @@ async function generateAIOverview(segments, uiContainer) {
                 uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Local GPU: Summarizing chunk ${i + 1} of ${chunksToProcess.length}... (Please do not close tab)</p>`;
 
                 const output = await summarizer(chunksToProcess[i], {
-                    max_length: 50,    
+                    max_length: 50,
                     min_length: 15,
-                    num_beams: 1,      
+                    num_beams: 1,
                     temperature: 1.0,
                 });
 
@@ -467,3 +467,30 @@ searchInput.addEventListener("keypress", function (event) {
         filterSubtitles();
     }
 });
+
+
+
+
+
+
+
+
+
+
+
+// // Filter DIY =================
+// const filterList = document.querySelector('#filter-list');
+// let uploadedFolder = [];
+
+// function renderFilter() {
+//     filterList.innerHTML = '';
+
+//     if (uploadedFolder.length === 0) {
+//         filterList.textContent = "No data loaded";
+//         return;
+//     }
+
+//     filterList.insertAdjacentHTML('beforeend', `<button class="btn active" onclick="filterSelection('all')"> Show all</button>`)
+//     filterList.insertAdjacentHTML('beforeend', `<button class="btn active" onclick="filterSelection('${folder}')">${folder.name}</button>`)
+
+// }

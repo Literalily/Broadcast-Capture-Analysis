@@ -17,7 +17,7 @@ echo ==========================================
 call "%VENV%\Scripts\activate.bat"
 
 echo ==========================================
-echo Verifying Local Hardware & CUDA Status...
+echo Verifying Local Hardware and CUDA Status...
 echo ==========================================
 python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None')"
 echo.

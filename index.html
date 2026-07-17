@@ -7,17 +7,39 @@
     <title>Subtitle Output</title>
     <link rel="icon" type="image/x-icon" href="assets/favicon.png" />
     <link rel="stylesheet" href="css/styles.css">
-    <!-- <script src="js/script.js" defer></script> -->
     <script type="module" src="js/script.js"></script>
 
 </head>
 
 <body>
-    <header class="header">
+    <!-- <header class="header">
         <h1>Subtitle Data</h1>
         <h4>Real-Time Broadcast Subtitle Capture and AI-Driven Analysis System</h4>
 
+        <p><a href="/page2.html">Sample Data</a></p>
+
+    </header> -->
+
+    <header class="header">
+        <div class="header-logo">
+            <div class="logo-icon">📺</div>
+            <div class="logo-text">Subtitle <span>Dashboard</span></div>
+            <div class="logo-sub">Real-Time Broadcast Subtitle Capture and AI-Driven Analysis System</div>
+        </div>
+
+        <div class="header-footer">
+            <div>QUB Electronics, Electrical Engineering and Computer Science</div>
+            <div class="signature-badge">Lily Crawford</div>
+        </div>
     </header>
+
+    <nav>
+        <div class="nav-section">Main</div>
+        <a href="index.html" class="nav-link active">📊 Dashboard</a>
+
+        <div class="nav-section">Analytics</div>
+        <a href="page2.html" class="nav-link">📋 Analytics</a>
+    </nav>
 
     <!-- ======================================================= -->
     <div id="page-container">
@@ -70,7 +92,7 @@
                         const data = await response.json();
                         if (response.ok) {
                             feedback.style.color = "green";
-                            feedback.textContent = `Success! Transcription script triggered. Check terminal window. <br>Processing typically takes around 5 minutes to complete.<br>Target folder: ${data.output_folder}`;
+                            feedback.textContent = `Success! Transcription script triggered. Check terminal window. Processing typically takes around 5 minutes to complete. Target folder: ${data.output_folder}`;
                         } else {
                             feedback.style.color = "red";
                             feedback.textContent = `Error: ${data.detail}`;
@@ -111,16 +133,14 @@
         <div class="viewer-container" id="viewer-container" style="display: none;">
 
             <!-- TABLE OF CONTENTS -->
-            <div class="card viewer-left">
-                <div id="toc-container">
-                    <h3>Search:</h3>
-                    <div class="search-container">
-                        <input type="text" id="searchInput" class="search-input" placeholder="Search subtitles...">
-                        <button type="button" id="searchButton" class="search-button">Search</button>
-                    </div>
-                    <h3><br>Table of Contents:</h3>
-                    <ul id="toc-list"></ul>
+            <div id="toc-container" class="viewer-left card">
+                <h3>Search:</h3>
+                <div class="search-container">
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search subtitles...">
+                    <button type="button" id="searchButton" class="search-button">Search</button>
                 </div>
+                <h3><br>Table of Contents:</h3>
+                <ul id="toc-list"></ul>
             </div>
 
             <!-- CARD 3 - SUBTITLES -->
