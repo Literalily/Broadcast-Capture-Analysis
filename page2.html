@@ -60,7 +60,6 @@
                 load all media and subtitles into the dashboard.</p>
             <input type="file" id="directoryPicker" webkitdirectory directory multiple class="search-input"
                 style="border-radius: 6px; padding: 5px;" />
-            <script type="file" id="directoryPicker" src="/Broadcast-Data/"></script>
         </div>
 
         <div class="viewer-container" id="viewer-container">
@@ -254,7 +253,7 @@
                     return;
                 }
 
-                dataToRender.forEach(item => {
+                dataToRender.forEach((item, index) => {
                     const hasSubtitles = !!item.subtitleFile;
                     const subBadge = hasSubtitles
                         ? `<span style="color: green; font-weight: bold; font-size: 12px;">✅ Subtitles Found</span>`
@@ -309,8 +308,8 @@
                     if (searchSeries && !item.series.toLowerCase().includes(searchSeries)) return false;
 
                     // Filter by Date Range
-                    if (startDate && item.date < startDate) return false; 
-                    
+                    if (startDate && item.date < startDate) return false;
+
                     if (endDate && item.date > endDate) return false;
 
                     return true;
