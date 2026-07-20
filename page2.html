@@ -39,11 +39,12 @@
     <div id="page-container">
 
         <div id="popupOverlay" class="overlay-container">
-            <div class="popup-box">
-                <h2 id="popupTitle">Subtitles</h2>
+            <div class="popup-box" style="width: 700px; max-height: 60vh; display: flex; flex-direction: column;">
+                <h2 id="popupTitle" style="color: #d7010d; margin-bottom: 10px;">Subtitles</h2>
 
-                <!-- Scrollable container for the subtitle lines -->
-                <div id="popupSubtitleContent">
+                <!-- Scrollable container for the subtitle lines with proper overflow styling -->
+                <div id="popupSubtitleContent"
+                    style="flex: 1; max-height: 60vh; overflow-y: auto; text-align: left; background: #f9f9f9; padding: 15px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 15px;">
                     <p style="color: #666; font-style: italic;">No subtitles loaded.</p>
                 </div>
 
@@ -110,6 +111,12 @@
     <script>
         let allBroadcastData = [];
 
+        const colorPool = [
+            'color-red', 'color-orange', 'color-green', 'color-blue',
+            'color-purple', 'color-pink', 'color-teal', 'color-darkred',
+            'color-burnt', 'color-lime', 'color-magenta', 'color-navy'
+        ];
+
         // for the subtitles popup to show
         function toggleSubtitlesPopup() {
             const overlay = document.getElementById('popupOverlay');
@@ -117,8 +124,8 @@
         }
 
         // Read and display subtitles for a specific broadcast item index
-        async function loadAndShowSubtitles(index) {
-            const item = allBroadcastData[index];
+        async function loadAndShowSubtitles(globalIndex) {
+            const item = allBroadcastData[globalIndex];
             if (!item || !item.subtitleFile) return;
 
             document.getElementById('popupTitle').textContent = `Subtitles: ${item.series}`;
@@ -139,12 +146,26 @@
                     return;
                 }
 
-                // Build HTML matching the dashboard subtitle layout style
+                // Populate with subtitles (+differentiate between speakers with alternating colours)
+                const speakerColorMap = {};
+                let colorIndex = 0;
                 let htmlMarkup = '';
-                segments.forEach((seg, idx) => {
+
+                segments.forEach((seg) => {
                     const start = seg.start !== undefined ? formatTime(seg.start) : '';
                     const end = seg.end !== undefined ? formatTime(seg.end) : '';
-                    const speaker = seg.speaker ? `<strong style="color: #2196F3; margin-right: 5px;">[${seg.speaker}]</strong>` : '';
+                    const speakerId = seg.speaker;
+                    let assignedColorClass = '';
+
+                    if (speakerId) {
+                        if (!speakerColorMap[speakerId]) {
+                            speakerColorMap[speakerId] = colorPool[colorIndex % colorPool.length];
+                            colorIndex++;
+                        }
+                        assignedColorClass = speakerColorMap[speakerId];
+                    }
+
+                    const speaker = speakerId ? `<span class="${assignedColorClass}">[${speakerId}]:</span> ` : '';
                     const text = seg.text || '';
 
                     htmlMarkup += `
@@ -254,6 +275,7 @@
                 }
 
                 dataToRender.forEach((item, index) => {
+                    const globalIndex = allBroadcastData.indexOf(item);
                     const hasSubtitles = !!item.subtitleFile;
                     const subBadge = hasSubtitles
                         ? `<span style="color: green; font-weight: bold; font-size: 12px;">✅ Subtitles Found</span>`
@@ -284,7 +306,7 @@
     <!-- Action Buttons utilizing your .ai-btn CSS -->
     <div style="display: flex; gap: 10px; margin-top: 5px;">
 <button class="ai-btn" onclick="alert('AI Overview module not yet linked.')">✨ Generate AI Overview</button>
-<button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="loadAndShowSubtitles(${index})">📝 Show Subtitles</button>
+<button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="loadAndShowSubtitles(${globalIndex})">📝 Show Subtitles</button>
 <button class="ai-btn" style="background-color: #333;" onclick="alert('View Video clicked for ${item.series}')">🎬 View Video</button>
     </div>
 

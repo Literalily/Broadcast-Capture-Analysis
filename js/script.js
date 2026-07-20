@@ -162,10 +162,10 @@ async function generateAIOverview(segments, uiContainer) {
                 uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Local GPU: Summarizing chunk ${i + 1} of ${chunksToProcess.length}... (Please do not close tab)</p>`;
 
                 const output = await summarizer(chunksToProcess[i], {
-                    max_length: 50,
+                    max_length: 80,
                     min_length: 15,
-                    num_beams: 1,
-                    temperature: 1.0,
+                    num_beams: 4,
+                    temperature: 0.1,
                 });
 
                 if (output && output[0] && output[0].summary_text) {
@@ -196,7 +196,9 @@ async function generateAIOverview(segments, uiContainer) {
 
     } catch (err) {
         console.error("AI Overview processing error:", err);
-        uiContainer.innerHTML = `<p style="color: #e53935; font-weight: bold; margin: 0;">⚠️ AI Overview Failed: ${err.message}</p>`;
+        // Fallback to err.toString() if err.message is missing
+        const errorMessage = err.message || err.toString() || "Unknown network error";
+        uiContainer.innerHTML = `<p style="color: #e53935; font-weight: bold; margin: 0;">⚠️ AI Overview Failed: ${errorMessage}</p>`;
     }
 }
 
@@ -254,7 +256,7 @@ function renderSubtitles() {
                 <li><a href="#${uniqueFileId}">${fileData.name}</a></li>
                 `);
 
-        // asection header (File name \n AI overview of file)
+        // asection header (File name / AI overview of file)
         listEl.insertAdjacentHTML('beforeend', `
             <section class="file-group" id="${uniqueFileId}">
                 <h2 class="subtitleHeader">📄 File: ${fileData.name}</h2>
