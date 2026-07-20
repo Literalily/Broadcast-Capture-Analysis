@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <!-- <script src="js/script.js" defer></script> -->
     <script type="module" src="js/script.js"></script>
+    <script src="Broadcast-Data"></script>
 
 </head>
 
@@ -34,103 +35,52 @@
         <a href="page2.html" class="nav-link active">📋 Analytics</a>
     </nav>
 
-    <!-- ======================================================= -->
     <div id="page-container">
-
-        <div class="viewer-container" id="viewer-container">
-            <div class="card viewer-header">
-                <h3>viewer header <br>short description of use here</h3>
-            </div>
+        <!-- Directory Upload Bar -->
+        <div class="card" style="height: auto; margin-bottom: 20px;">
+            <h3 class="subtitleHeader">📂 Select Broadcast Directory</h3>
+            <p style="margin-bottom: 15px; color: #666;">Select your local <strong>Broadcast-Data</strong> folder to
+                load all media and subtitles into the dashboard.</p>
+            <input type="file" id="directoryPicker" webkitdirectory directory multiple class="search-input"
+                style="border-radius: 6px; padding: 5px;" />
         </div>
 
         <div class="viewer-container" id="viewer-container">
+            <!-- Filters Card -->
+            <div class="card viewer-left" style="height: auto; min-height: 400px;">
+                <h3 class="subtitleHeader">🔍 Filter Data</h3>
+                <div style="margin-top: 15px;">
 
-            <div class="card viewer-top">
-                <h3>Filters here</h3>
+                    <label>Folder / Program:</label>
+                    <select id="folderFilter" class="search-input" style="border-radius: 6px;">
+                        <option value="all">View All</option>
+                    </select>
 
-                <!-- ======================================= -->
-                <h2>Filter DIV Elements</h2>
+                    <label style="margin-top: 15px;">Series / Episode Name:</label>
+                    <input type="text" id="seriesFilter" class="search-input" style="border-radius: 6px;"
+                        placeholder="Search episodes...">
 
-                <div id="filter-list">
-                    <button class="btn active" onclick="filterSelection('all')"> Show all</button>
-                    <button class="btn" onclick="filterSelection('cars')"> Cars</button>
-                    <button class="btn" onclick="filterSelection('animals')"> Animals</button>
-                    <button class="btn" onclick="filterSelection('fruits')"> Fruits</button>
-                    <button class="btn" onclick="filterSelection('colors')"> Colors</button>
+                    <label style="margin-top: 15px;">Date From:</label>
+                    <input type="date" id="dateStartFilter" class="search-input" style="border-radius: 6px;">
+
+                    <label style="margin-top: 15px;">Date To:</label>
+                    <input type="date" id="dateEndFilter" class="search-input" style="border-radius: 6px;">
+
+                    <button id="applyFiltersBtn" class="search-button"
+                        style="width: 100%; margin-top: 25px; border-radius: 6px;">Apply Filters</button>
                 </div>
-
-                <div class="container">
-                    <div class="filterDiv cars">BMW</div>
-                    <div class="filterDiv colors fruits">Orange</div>
-                    <div class="filterDiv cars">Volvo</div>
-                    <div class="filterDiv colors">Red</div>
-                    <div class="filterDiv cars">Ford</div>
-                    <div class="filterDiv colors">Blue</div>
-                    <div class="filterDiv animals">Cat</div>
-                    <div class="filterDiv animals">Dog</div>
-                    <div class="filterDiv fruits">Melon</div>
-                    <div class="filterDiv fruits animals">Kiwi</div>
-                    <div class="filterDiv fruits">Banana</div>
-                    <div class="filterDiv fruits">Lemon</div>
-                    <div class="filterDiv animals">Cow</div>
-                </div>
-
-                <script>
-                    filterSelection("all")
-                    function filterSelection(c) {
-                        var x, i;
-                        x = document.getElementsByClassName("filterDiv");
-                        if (c == "all") c = "";
-                        for (i = 0; i < x.length; i++) {
-                            w3RemoveClass(x[i], "show");
-                            if (x[i].className.indexOf(c) > -1) w3AddClass(x[i], "show");
-                        }
-                    }
-
-                    function w3AddClass(element, name) {
-                        var i, arr1, arr2;
-                        arr1 = element.className.split(" ");
-                        arr2 = name.split(" ");
-                        for (i = 0; i < arr2.length; i++) {
-                            if (arr1.indexOf(arr2[i]) == -1) { element.className += " " + arr2[i]; }
-                        }
-                    }
-
-                    function w3RemoveClass(element, name) {
-                        var i, arr1, arr2;
-                        arr1 = element.className.split(" ");
-                        arr2 = name.split(" ");
-                        for (i = 0; i < arr2.length; i++) {
-                            while (arr1.indexOf(arr2[i]) > -1) {
-                                arr1.splice(arr1.indexOf(arr2[i]), 1);
-                            }
-                        }
-                        element.className = arr1.join(" ");
-                    }
-
-                    // Add active class to the current button (highlight it)
-                    var btnContainer = document.getElementById("myBtnContainer");
-                    var btns = btnContainer.getElementsByClassName("btn");
-                    for (var i = 0; i < btns.length; i++) {
-                        btns[i].addEventListener("click", function () {
-                            var current = document.getElementsByClassName("active");
-                            current[0].className = current[0].className.replace(" active", "");
-                            this.className += " active";
-                        });
-                    }
-                </script>
-
-                <!-- ======================================= -->
-
-
-                <h3><br>Table of contents here</h3>
             </div>
 
-            <div class="card viewer-main">
-                <h3>Files here + Button to click and open video</h3>
+            <!-- Results Card -->
+            <div class="card viewer-main" style="height: 800px; overflow-y: auto;">
+                <h3 class="subtitleHeader">📁 Available Broadcasts</h3>
 
+                <!-- This grid will be populated by JavaScript -->
+                <div id="broadcast-results"
+                    style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 15px;">
+                    <p style="color: #666; font-style: italic;">Awaiting folder selection...</p>
+                </div>
             </div>
-
         </div>
     </div>
     </div>
@@ -139,6 +89,156 @@
     <footer>
         <p>QUB Electronics, Electrical Engineering and Computer Science</p>
     </footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const directoryPicker = document.getElementById("directoryPicker");
+            const folderFilter = document.getElementById("folderFilter");
+            const seriesFilter = document.getElementById("seriesFilter");
+            const dateStartFilter = document.getElementById("dateStartFilter");
+            const dateEndFilter = document.getElementById("dateEndFilter");
+            const resultsContainer = document.getElementById("broadcast-results");
+            const applyBtn = document.getElementById("applyFiltersBtn");
+
+            let allBroadcastData = []; // Holds the processed file groups
+
+            // === 1. Handle Folder Selection
+            directoryPicker.addEventListener("change", (event) => {
+                const files = event.target.files;
+                if (!files || files.length === 0) return;
+
+                const fileMap = new Map();
+
+                // Group files by their folder and base name
+                for (const file of files) {
+                    // webkitRelativePath looks like: "Broadcast-Data/NewsAtOne/episode1.mp4"
+                    const pathParts = file.webkitRelativePath.split('/');
+                    if (pathParts.length < 3) continue; // Skip files not in a subfolder
+
+                    const folderName = pathParts[pathParts.length - 2];
+                    const fileName = file.name;
+                    // Remove extension to find matching video/subtitle pairs
+                    const baseName = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+                    const extension = fileName.split('.').pop().toLowerCase();
+
+                    const uniqueKey = `${folderName}/${baseName}`;
+
+                    if (!fileMap.has(uniqueKey)) {
+                        // Extract a YYYY-MM-DD date from the file metadata
+                        const dateObj = new Date(file.lastModified);
+                        const dateStr = dateObj.toISOString().split('T')[0];
+
+                        fileMap.set(uniqueKey, {
+                            folder: folderName,
+                            series: baseName,
+                            date: dateStr,
+                            videoFile: null,
+                            subtitleFile: null
+                        });
+                    }
+
+                    // Assign the actual File object to the group
+                    const group = fileMap.get(uniqueKey);
+                    if (['mp4', 'mkv', 'mov', 'avi', 'ts'].includes(extension)) {
+                        group.videoFile = file;
+                    } else if (extension === 'json') {
+                        group.subtitleFile = file;
+                    }
+                }
+
+                // Filter out groups that don't have at least a video file
+                allBroadcastData = Array.from(fileMap.values()).filter(item => item.videoFile);
+
+                populateFolderDropdown(allBroadcastData);
+                renderResults(allBroadcastData);
+            });
+
+            // 2. Populate the Folder Dropdown
+            function populateFolderDropdown(data) {
+                // Keep the "View All" option, clear the rest
+                folderFilter.innerHTML = '<option value="all">View All</option>';
+                const uniqueFolders = [...new Set(data.map(item => item.folder))];
+
+                uniqueFolders.forEach(folder => {
+                    const option = document.createElement("option");
+                    option.value = folder;
+                    option.textContent = folder;
+                    folderFilter.appendChild(option);
+                });
+            }
+
+            // 3. Render the Result Cards
+            function renderResults(dataToRender) {
+                resultsContainer.innerHTML = "";
+
+                if (dataToRender.length === 0) {
+                    resultsContainer.innerHTML = `<p style="color: #666; font-style: italic;">No broadcasts match your filters.</p>`;
+                    return;
+                }
+
+                dataToRender.forEach(item => {
+                    const hasSubtitles = !!item.subtitleFile;
+                    const subBadge = hasSubtitles
+                        ? `<span style="color: green; font-weight: bold; font-size: 12px;">✅ Subtitles Found</span>`
+                        : `<span style="color: red; font-weight: bold; font-size: 12px;">❌ No Subtitles</span>`;
+
+                    const card = document.createElement("div");
+                    // Utilizing your existing CSS classes for styling
+                    card.className = "ai-overview-container";
+                    card.style.display = "flex";
+                    card.style.flexDirection = "column";
+                    card.style.gap = "10px";
+
+                    card.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <h4 style="margin: 0; color: #d7010d; font-size: 18px;">${item.series}</h4>
+                                <p style="margin: 3px 0 0 0; font-size: 12px; color: #666;">📁 Folder: <strong>${item.folder}</strong> | 📅 Date: ${item.date}</p>
+                            </div>
+                            ${subBadge}
+                        </div>
+                        
+                        <!-- Dedicated space for Sentiment Analysis per folder -->
+                        <div style="background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+                            <strong>Overall Sentiment:</strong> <span style="color: #888; font-style: italic;">Awaiting analysis...</span>
+                        </div>
+
+                        <!-- Action Buttons utilizing your .ai-btn CSS -->
+                        <div style="display: flex; gap: 10px; margin-top: 5px;">
+                            <button class="ai-btn" onclick="alert('AI Overview module not yet linked.')">✨ Generate AI Overview</button>
+                            <button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="alert('Show Subtitles clicked for ${item.series}')">📝 Show Subtitles</button>
+                            <button class="ai-btn" style="background-color: #333;" onclick="alert('View Video clicked for ${item.series}')">🎬 View Video</button>
+                        </div>
+                    `;
+                    resultsContainer.appendChild(card);
+                });
+            }
+
+            // 4. Handle Filter Logic
+            applyBtn.addEventListener("click", () => {
+                const selectedFolder = folderFilter.value;
+                const searchSeries = seriesFilter.value.toLowerCase();
+                const startDate = dateStartFilter.value;
+                const endDate = dateEndFilter.value;
+
+                const filteredData = allBroadcastData.filter(item => {
+                    // Filter by Folder
+                    if (selectedFolder !== "all" && item.folder !== selectedFolder) return false;
+
+                    // Filter by Series Search
+                    if (searchSeries && !item.series.toLowerCase().includes(searchSeries)) return false;
+
+                    // Filter by Date Range
+                    if (startDate && item.date < startDate) return false;
+                    if (endDate && item.date > endDate) return false;
+
+                    return true;
+                });
+
+                renderResults(filteredData);
+            });
+        });
+    </script>
 
 </body>
 
