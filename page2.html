@@ -7,7 +7,6 @@
     <title>Subtitle Output</title>
     <link rel="icon" type="image/x-icon" href="assets/favicon.png" />
     <link rel="stylesheet" href="css/styles.css">
-    <!-- <script src="js/script.js" defer></script> -->
     <script type="module" src="js/script.js"></script>
 
 </head>
@@ -34,13 +33,21 @@
         <a href="page2.html" class="nav-link active">📋 Analytics</a>
     </nav>
 
+
+    <!-- It gets good from here ===== ===== ===== ===== ===== -->
+
     <div id="page-container">
 
         <div id="popupOverlay" class="overlay-container">
             <div class="popup-box">
-                <h2>Subtitles Here</h2>
+                <h2 id="popupTitle">Subtitles</h2>
 
-                <button class="btn-close-popup" onclick="showSubtitlePopup()">
+                <!-- Scrollable container for the subtitle lines -->
+                <div id="popupSubtitleContent">
+                    <p style="color: #666; font-style: italic;">No subtitles loaded.</p>
+                </div>
+
+                <button class="btn-close-popup" onclick="toggleSubtitlesPopup()">
                     Close
                 </button>
             </div>
@@ -53,6 +60,7 @@
                 load all media and subtitles into the dashboard.</p>
             <input type="file" id="directoryPicker" webkitdirectory directory multiple class="search-input"
                 style="border-radius: 6px; padding: 5px;" />
+            <script type="file" id="directoryPicker" src="/Broadcast-Data/"></script>
         </div>
 
         <div class="viewer-container" id="viewer-container">
@@ -101,6 +109,68 @@
     </footer>
 
     <script>
+        let allBroadcastData = [];
+
+        // for the subtitles popup to show
+        function toggleSubtitlesPopup() {
+            const overlay = document.getElementById('popupOverlay');
+            overlay.classList.toggle('show');
+        }
+
+        // Read and display subtitles for a specific broadcast item index
+        async function loadAndShowSubtitles(index) {
+            const item = allBroadcastData[index];
+            if (!item || !item.subtitleFile) return;
+
+            document.getElementById('popupTitle').textContent = `Subtitles: ${item.series}`;
+            const contentContainer = document.getElementById('popupSubtitleContent');
+            contentContainer.innerHTML = `<p style="color: #666; font-style: italic;">Loading subtitles...</p>`;
+
+            toggleSubtitlesPopup();
+
+            try {
+                // Read the local JSON file object captured via webkitdirectory
+                const textContent = await item.subtitleFile.text();
+                const jsonData = JSON.parse(textContent);
+
+                const segments = Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
+
+                if (segments.length === 0) {
+                    contentContainer.innerHTML = `<p style="color: #666;">No subtitle segments found in this JSON file.</p>`;
+                    return;
+                }
+
+                // Build HTML matching the dashboard subtitle layout style
+                let htmlMarkup = '';
+                segments.forEach((seg, idx) => {
+                    const start = seg.start !== undefined ? formatTime(seg.start) : '';
+                    const end = seg.end !== undefined ? formatTime(seg.end) : '';
+                    const speaker = seg.speaker ? `<strong style="color: #2196F3; margin-right: 5px;">[${seg.speaker}]</strong>` : '';
+                    const text = seg.text || '';
+
+                    htmlMarkup += `
+                        <div style="padding: 8px 10px; margin-bottom: 6px; background: #fff; border-left: 3px solid #d7010d; border-radius: 3px; font-size: 13px;">
+                            <div style="font-size: 11px; color: #888; margin-bottom: 2px;">${start} → ${end}</div>
+                            <div>${speaker}${text}</div>
+                        </div>
+                    `;
+                });
+
+                contentContainer.innerHTML = htmlMarkup;
+
+            } catch (err) {
+                console.error("Failed to parse subtitle JSON:", err);
+                contentContainer.innerHTML = `<p style="color: red;">Error parsing subtitle file: ${err.message}</p>`;
+            }
+        }
+
+        // Helper to format seconds into HH:MM:SS or MM:SS
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             const directoryPicker = document.getElementById("directoryPicker");
             const folderFilter = document.getElementById("folderFilter");
@@ -109,8 +179,6 @@
             const dateEndFilter = document.getElementById("dateEndFilter");
             const resultsContainer = document.getElementById("broadcast-results");
             const applyBtn = document.getElementById("applyFiltersBtn");
-
-            let allBroadcastData = []; // Holds the processed file groups
 
             // === 1. Handle Folder Selection
             directoryPicker.addEventListener("change", (event) => {
@@ -200,35 +268,30 @@
                     card.style.gap = "10px";
 
                     card.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <h4 style="margin: 0; color: #d7010d; font-size: 18px;">${item.series}</h4>
-                                <p style="margin: 3px 0 0 0; font-size: 12px; color: #666;">📁 Folder: <strong>${item.folder}</strong> | 📅 Date: ${item.date}</p>
-                            </div>
-                            ${subBadge}
-                        </div>
-                        
-                        <!-- Dedicated space for Sentiment Analysis per folder -->
-                        <div style="background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
-                            <strong>Overall Sentiment:</strong> <span style="color: #888; font-style: italic;">Awaiting analysis...</span>
-                        </div>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <h4 style="margin: 0; color: #d7010d; font-size: 18px;">${item.series}</h4>
+            <p style="margin: 3px 0 0 0; font-size: 12px; color: #666;">📁 Folder: <strong>${item.folder}</strong> | 📅
+                Date: ${item.date}</p>
+        </div>
+        ${subBadge}
+    </div>
 
-                        <!-- Action Buttons utilizing your .ai-btn CSS -->
-                        <div style="display: flex; gap: 10px; margin-top: 5px;">
-                            <button class="ai-btn" onclick="alert('AI Overview module not yet linked.')">✨ Generate AI Overview</button>
-                            <button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="showSubtitlePopup()">📝 Show Subtitles</button>
-                            <button class="ai-btn" style="background-color: #333;" onclick="alert('View Video clicked for ${item.series}')">🎬 View Video</button>
-                        </div>
-    
-                    `;
+    <!-- Dedicated space for Sentiment Analysis per folder -->
+    <div style="background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+        <strong>Overall Sentiment:</strong> <span style="color: #888; font-style: italic;">Awaiting analysis...</span>
+    </div>
+
+    <!-- Action Buttons utilizing your .ai-btn CSS -->
+    <div style="display: flex; gap: 10px; margin-top: 5px;">
+<button class="ai-btn" onclick="alert('AI Overview module not yet linked.')">✨ Generate AI Overview</button>
+<button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="loadAndShowSubtitles(${index})">📝 Show Subtitles</button>
+<button class="ai-btn" style="background-color: #333;" onclick="alert('View Video clicked for ${item.series}')">🎬 View Video</button>
+    </div>
+
+    `;
                     resultsContainer.appendChild(card);
                 });
-            }
-
-            function showSubtitlePopup() {
-                "alert('Show Subtitles clicked for ${item.series}')"
-                const overlay = document.getElementById('popupOverlay');
-                overlay.classList.toggle('show');
             }
 
             // 4. Handle Filter Logic
@@ -246,7 +309,8 @@
                     if (searchSeries && !item.series.toLowerCase().includes(searchSeries)) return false;
 
                     // Filter by Date Range
-                    if (startDate && item.date < startDate) return false;
+                    if (startDate && item.date < startDate) return false; 
+                    
                     if (endDate && item.date > endDate) return false;
 
                     return true;
