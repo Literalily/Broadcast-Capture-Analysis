@@ -467,30 +467,3 @@ searchInput.addEventListener("keypress", function (event) {
         filterSubtitles();
     }
 });
-
-
-
-
-
-
-
-
-
-
-
-// // Filter DIY =================
-// const filterList = document.querySelector('#filter-list');
-// let uploadedFolder = [];
-
-// function renderFilter() {
-//     filterList.innerHTML = '';
-
-//     if (uploadedFolder.length === 0) {
-//         filterList.textContent = "No data loaded";
-//         return;
-//     }
-
-//     filterList.insertAdjacentHTML('beforeend', `<button class="btn active" onclick="filterSelection('all')"> Show all</button>`)
-//     filterList.insertAdjacentHTML('beforeend', `<button class="btn active" onclick="filterSelection('${folder}')">${folder.name}</button>`)
-
-// }

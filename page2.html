@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="css/styles.css">
     <!-- <script src="js/script.js" defer></script> -->
     <script type="module" src="js/script.js"></script>
-    <script src="Broadcast-Data"></script>
 
 </head>
 
@@ -36,6 +35,17 @@
     </nav>
 
     <div id="page-container">
+
+        <div id="popupOverlay" class="overlay-container">
+            <div class="popup-box">
+                <h2>Subtitles Here</h2>
+
+                <button class="btn-close-popup" onclick="showSubtitlePopup()">
+                    Close
+                </button>
+            </div>
+        </div>
+
         <!-- Directory Upload Bar -->
         <div class="card" style="height: auto; margin-bottom: 20px;">
             <h3 class="subtitleHeader">📂 Select Broadcast Directory</h3>
@@ -82,7 +92,7 @@
                 </div>
             </div>
         </div>
-    </div>
+
     </div>
 
     <!-- Footer -->
@@ -206,12 +216,19 @@
                         <!-- Action Buttons utilizing your .ai-btn CSS -->
                         <div style="display: flex; gap: 10px; margin-top: 5px;">
                             <button class="ai-btn" onclick="alert('AI Overview module not yet linked.')">✨ Generate AI Overview</button>
-                            <button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="alert('Show Subtitles clicked for ${item.series}')">📝 Show Subtitles</button>
+                            <button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="showSubtitlePopup()">📝 Show Subtitles</button>
                             <button class="ai-btn" style="background-color: #333;" onclick="alert('View Video clicked for ${item.series}')">🎬 View Video</button>
                         </div>
+    
                     `;
                     resultsContainer.appendChild(card);
                 });
+            }
+
+            function showSubtitlePopup() {
+                "alert('Show Subtitles clicked for ${item.series}')"
+                const overlay = document.getElementById('popupOverlay');
+                overlay.classList.toggle('show');
             }
 
             // 4. Handle Filter Logic
