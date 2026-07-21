@@ -3,7 +3,7 @@
 window.generateAIOverview = generateAIOverview;
 
 // Splits the subtitle text (segment array) into smaller, logical character chunks
-function chunkText(segments, maxChunkChars = 1500) {
+function chunkText(segments, maxChunkChars = 3000) {
     const chunks = [];
     let currentChunk = "";
 
@@ -30,13 +30,13 @@ async function generateAIOverview(segments, uiContainer) {
     try {
         uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Structuring text data for Ollama...</p>`;
 
-        const allChunks = chunkText(segments, 4000);
+        const allChunks = chunkText(segments, 8000);
         if (allChunks.length === 0) {
             uiContainer.innerHTML = `<p class="ai-overview-status">🤖 No content found to summarize.</p>`;
             return;
         }
 
-        const maxChunks = 3;
+        const maxChunks = 7;
         const chunksToProcess = allChunks.slice(0, maxChunks);
         const summaries = [];
 
