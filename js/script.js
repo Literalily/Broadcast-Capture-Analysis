@@ -1,36 +1,97 @@
-// Import hugging face + use GPU to run hugging face ai with WebGPU
-import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
 
-// Check if the browser supports WebGPU
-async function checkWebGPUSupport() {
-    if (!navigator.gpu) return false;
+// Expose the function globally immediately so other pages can access it
+window.generateAIOverview = generateAIOverview;
+
+// Splits the subtitle text (segment array) into smaller, logical character chunks
+function chunkText(segments, maxChunkChars = 1500) {
+    const chunks = [];
+    let currentChunk = "";
+
+    for (const segment of segments) {
+        const text = segment.text ? segment.text.trim() : "";
+        if (!text) continue;
+
+        if ((currentChunk + " " + text).length > maxChunkChars && currentChunk.length > 0) {
+            chunks.push(currentChunk.trim());
+            currentChunk = text;
+        } else {
+            currentChunk = currentChunk ? currentChunk + " " + text : text;
+        }
+    }
+
+    if (currentChunk.trim()) {
+        chunks.push(currentChunk.trim());
+    }
+    return chunks;
+}
+
+// processes, chunks, and summarises subtitle files using local Ollama
+async function generateAIOverview(segments, uiContainer) {
     try {
-        const adapter = await navigator.gpu.requestAdapter();
-        return !!adapter;
-    } catch (e) {
-        return false;
+        uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Structuring text data for Ollama...</p>`;
+
+        const allChunks = chunkText(segments, 4000);
+        if (allChunks.length === 0) {
+            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 No content found to summarize.</p>`;
+            return;
+        }
+
+        const maxChunks = 3;
+        const chunksToProcess = allChunks.slice(0, maxChunks);
+        const summaries = [];
+
+        uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Generating insights locally with Ollama...</p>`;
+
+        for (let i = 0; i < chunksToProcess.length; i++) {
+            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Analysing chunk ${i + 1} of${chunksToProcess.length}...</p>`;
+
+            const response = await fetch('http://localhost:11434/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'phi3',
+                    prompt: `You are an expert broadcast analyst. Provide a brief, one-sentence summary of this transcript chunk: \n\n${chunksToProcess[i]}`,
+                    stream: false,
+                    options: {
+                        temperature: 0.2
+                    }
+                })
+            });
+
+            if (!response.ok) throw new Error("Could not connect to Ollama. Ensure the Ollama app is running.");
+
+            const data = await response.json();
+            summaries.push(data.response.trim());
+        }
+
+        let finalHTML = "";
+        if (summaries.length > 1) {
+            finalHTML = `<ul class="ai-bullet-list">` +
+                summaries.map(s => `<li>${s}</li>`).join('') +
+                `</ul>`;
+            if (allChunks.length > maxChunks) {
+                finalHTML += `<p style="font-size: 11px; color: #666; margin-top: 10px; font-style: italic;">Note: Only the first ${maxChunks} parts of this long transcript were summarized to keep performance fast.</p>`;
+            }
+        } else if (summaries.length === 1) {
+            finalHTML = `<p>${summaries[0]}</p>`;
+        } else {
+            finalHTML = `<p>Could not generate transcript overview.</p>`;
+        }
+
+        uiContainer.innerHTML = `
+            <div class="ai-overview-header">🤖 AI Summary:</div>
+            <div class="ai-overview-body">${finalHTML}</div>
+        `;
+
+    } catch (err) {
+        console.error("AI Overview processing error:", err);
+        const errorMessage = err.message || "Ensure Ollama is installed and running.";
+        uiContainer.innerHTML = `<p style="color: #e53935; font-weight: bold; margin: 0;">⚠️ AI Overview Failed: ${errorMessage}</p>`;
     }
+
 }
 
-let summarizerPromise = null;
-
-// This function will now safely load the model ONLY when the user clicks "Generate"
-async function getSummarizer() {
-    if (!summarizerPromise) {
-        const supportsWebGPU = await checkWebGPUSupport();
-
-        // Initialize the model lazily with memory-optimized configs
-        summarizerPromise = pipeline('summarization', 'Xenova/distilbart-cnn-6-6', {
-            device: supportsWebGPU ? 'webgpu' : 'wasm',
-            // fp16 is optimal for WebGPU; q8 (8-bit quantization) prevents WASM OOM crashes
-            dtype: supportsWebGPU ? 'fp16' : 'q8',
-        });
-    }
-    return summarizerPromise;
-}
-
-
-
+// ===== ===== ===== DOM Elements ===== ===== =====
 // for the subtitle files
 const fileInput = document.querySelector('#file');
 // for the table of contents
@@ -43,10 +104,6 @@ const statusText = document.getElementById('status');
 // for the speaker toggle switch
 const speakerSwitch = document.getElementById('mySpeakerSwitch');
 const speakerStatusText = document.getElementById('speakerStatus');
-// for the cards to appear only when needed
-const subtitlesCard = document.getElementById('subtitles-card');
-const analysisCard = document.getElementById('analysis-card');
-const videoCard = document.getElementById('video-card');
 // for the search bar
 const searchInput = document.getElementById("searchInput");
 const searchButton = document.getElementById("searchButton");
@@ -62,176 +119,42 @@ const colorPool = [
     'color-burnt', 'color-lime', 'color-magenta', 'color-navy'
 ];
 
-// take chunks of the etxt at a time to not overload the AI
-// Splits segment array texts into safe, logical character chunks.
-//  * Standardizes sizes below 3000 characters to keep browser-based LLMs from overflowing memory.
-
-function chunkText(segments, maxChunkChars = 1500) {
-    const chunks = [];
-    let currentChunk = "";
-
-    for (const segment of segments) {
-        const text = segment.text ? segment.text.trim() : "";
-        if (!text) continue;
-
-        // If adding this text exceeds max limit, push current chunk and start a new one
-        if ((currentChunk + " " + text).length > maxChunkChars && currentChunk.length > 0) {
-            chunks.push(currentChunk.trim());
-            currentChunk = text;
-        } else {
-            currentChunk = currentChunk ? currentChunk + " " + text : text;
-        }
-    }
-
-    if (currentChunk.trim()) {
-        chunks.push(currentChunk.trim());
-    }
-    return chunks;
-}
-
-/**
- * Background function that processes, chunks, and summarizes subtitle files.
- * Hybrid Mode: Uses the Cloud API if an HF Token is provided, otherwise falls back to the local WebGPU/WASM engine.
- */
-async function generateAIOverview(segments, uiContainer) {
-    try {
-        uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Structuring text data...</p>`;
-
-        const allChunks = chunkText(segments, 3500);
-        if (allChunks.length === 0) {
-            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 No content found to summarize.</p>`;
-            return;
-        }
-
-        // SAFETY CAP: Max 3 chunks processed to prevent wait timeouts
-        const maxChunks = 3;
-        const chunksToProcess = allChunks.slice(0, maxChunks);
-
-        // 1. Retrieve the token from your existing Card 1 input field
-        const hfTokenInput = document.getElementById('webHfToken');
-        const hfToken = hfTokenInput ? hfTokenInput.value.trim() : "";
-
-        const summaries = [];
-
-        if (hfToken) {
-            // --- CLOUD API PATH ---
-            uiContainer.innerHTML = `<p class="ai-overview-status">☁️ Connecting to Hugging Face Cloud API...</p>`;
-
-            // We'll use bart-large-cnn for incredibly polished, highly accurate summaries
-            const modelId = 'facebook/bart-large-cnn';
-
-            for (let i = 0; i < chunksToProcess.length; i++) {
-                uiContainer.innerHTML = `<p class="ai-overview-status">☁️ Cloud API: Summarizing chunk ${i + 1} of ${chunksToProcess.length}...</p>`;
-
-                const response = await fetch(`https://api-inference.huggingface.co/models/${modelId}`, {
-                    headers: {
-                        "Authorization": `Bearer ${hfToken}`,
-                        "Content-Type": "application/json"
-                    },
-                    method: "POST",
-                    body: JSON.stringify({
-                        inputs: chunksToProcess[i],
-                        parameters: {
-                            max_length: 80,
-                            min_length: 25
-                        },
-                        options: {
-                            // ESSENTIAL: If the cloud model is "sleeping", this tells Hugging Face 
-                            // to spin it up and wait instead of throwing a 503 error immediately.
-                            wait_for_model: true
-                        }
-                    })
-                });
-
-                const result = await response.json();
-
-                if (response.ok && Array.isArray(result) && result[0]?.summary_text) {
-                    summaries.push(result[0].summary_text);
-                } else if (result.error) {
-                    throw new Error(`HF API Error: ${result.error}`);
-                } else {
-                    throw new Error(`Unexpected cloud response format.`);
-                }
-            }
-        } else {
-            // --- LOCAL WEB ASSEMBLY / WEBGPU FALLBACK ---
-            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Loading local AI engine (first run takes about 30 seconds)...</p>`;
-            const summarizer = await getSummarizer();
-
-            for (let i = 0; i < chunksToProcess.length; i++) {
-                uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Local GPU: Summarizing chunk ${i + 1} of ${chunksToProcess.length}... (Please do not close tab)</p>`;
-
-                const output = await summarizer(chunksToProcess[i], {
-                    max_length: 80,
-                    min_length: 15,
-                    num_beams: 4,
-                    temperature: 0.1,
-                });
-
-                if (output && output[0] && output[0].summary_text) {
-                    summaries.push(output[0].summary_text);
-                }
-            }
-        }
-
-        let finalHTML = "";
-        if (summaries.length > 1) {
-            finalHTML = `<ul class="ai-bullet-list">` +
-                summaries.map(s => `<li>${s.trim()}</li>`).join('') +
-                `</ul>`;
-            if (allChunks.length > maxChunks) {
-                finalHTML += `<p style="font-size: 11px; color: #666; margin-top: 10px; font-style: italic;">Note: Only the first ${maxChunks} parts of this long transcript were summarized to keep performance fast.</p>`;
-            }
-        } else if (summaries.length === 1) {
-            finalHTML = `<p>${summaries[0]}</p>`;
-        } else {
-            finalHTML = `<p>Could not generate transcript overview.</p>`;
-        }
-
-        const sourceLabel = hfToken ? "☁️ Cloud API" : "🤖 Local AI Engine";
-        uiContainer.innerHTML = `
-            <div class="ai-overview-header">${sourceLabel} Summary:</div>
-            <div class="ai-overview-body">${finalHTML}</div>
-        `;
-
-    } catch (err) {
-        console.error("AI Overview processing error:", err);
-        // Fallback to err.toString() if err.message is missing
-        const errorMessage = err.message || err.toString() || "Unknown network error";
-        uiContainer.innerHTML = `<p style="color: #e53935; font-weight: bold; margin: 0;">⚠️ AI Overview Failed: ${errorMessage}</p>`;
-    }
-}
-
+// ===== ===== ===== RENDER SUBTITLES ===== ===== =====
 // function which renders the subtitles each time a file changes or the start/end times toggle switch is toggled
 function renderSubtitles() {
+    if (!listEl || !tocListEl) return;
     // clear old subtitles+reset table of contents
     listEl.innerHTML = '';
     tocListEl.innerHTML = '';
 
     if (uploadedFiles.length === 0) {
-        tocContainer.style.display = 'none';
-        viewerContainer.style.display = 'none'; // Hide parent container
-        statusText.textContent = "No data loaded";
-        speakerStatusText.textContent = "No data loaded";
+        if (tocContainer) tocContainer.style.display = 'none';
+        if (viewerContainer) viewerContainer.style.display = 'none';
+        if (statusText) statusText.textContent = "No data loaded";
+        if (speakerStatusText) speakerStatusText.textContent = "No data loaded";
         return;
     }
 
     // times toggle switch
-    if (toggleSwitch.checked) {
-        statusText.textContent = 'Start/End Times Hidden';
-    } else {
-        statusText.textContent = 'Start/End Times Shown';
+    if (toggleSwitch && statusText) {
+        if (toggleSwitch.checked) {
+            statusText.textContent = 'Start/End Times Hidden';
+        } else {
+            statusText.textContent = 'Start/End Times Shown';
+        }
     }
 
     // speaker toggle switch
-    if (speakerSwitch.checked) {
-        speakerStatusText.textContent = 'Speaker Only When Changed';
-    } else {
-        speakerStatusText.textContent = 'Speaker Always Visible';
+    if (speakerSwitch && speakerStatusText) {
+        if (speakerSwitch.checked) {
+            speakerStatusText.textContent = 'Speaker Only When Changed';
+        } else {
+            speakerStatusText.textContent = 'Speaker Always Visible';
+        }
     }
 
-    tocContainer.style.display = 'block';
-    viewerContainer.style.display = 'flex';
+    if (tocContainer) tocContainer.style.display = 'block';
+    if (viewerContainer) viewerContainer.style.display = 'flex';
 
     const speakerColorMap = {};
     let colorIndex = 0;
@@ -272,9 +195,11 @@ function renderSubtitles() {
         const overviewBox = document.getElementById(`ai-overview-${uniqueFileId}`);
         const aiButton = document.getElementById(`btn-ai-${uniqueFileId}`);
 
-        aiButton.addEventListener('click', () => {
-            generateAIOverview(fileData.segments, overviewBox);
-        });
+        if (aiButton) {
+            aiButton.addEventListener('click', () => {
+                generateAIOverview(fileData.segments, overviewBox);
+            });
+        }
 
         const currentSubtitleList = document.querySelector(`#${uniqueFileId} .subtitle-group`);
 
@@ -297,7 +222,7 @@ function renderSubtitles() {
                 // dynamic updating for toggle switch - only updates if the switch is on
                 let start = '';
                 let end = '';
-                if (!toggleSwitch.checked) {
+                if (toggleSwitch && !toggleSwitch.checked) {
                     start = segment.start ? `<small>[Start: ${segment.start}s]</small> ` : '';
                     end = segment.end ? `<small>[End: ${segment.end}s]</small> ` : '';
                 }
@@ -306,11 +231,9 @@ function renderSubtitles() {
                 // speaker visibility
                 let speaker = '';
                 // when toggled on, the speaker ID is only shown when the speaker changes
-                if (speakerSwitch.checked) {
+                if (speakerSwitch && speakerSwitch.checked) {
                     if (speakerId && speakerId !== previousSpeaker) {
-                        speaker = `<span class="${assignedColorClass}">
-            [${speakerId}]:
-        </span> `;
+                        speaker = `<span class="${assignedColorClass}">[${speakerId}]:</span> `;
                     }
 
                     previousSpeaker = speakerId;
@@ -355,6 +278,7 @@ function renderSubtitles() {
 // sentiment and video alignment function
 function analyzeIndividualLine(text, speaker, start) {
     const analysisPanel = document.getElementById("selected-line-analysis");
+    if (!analysisPanel) return;
 
     const speakerLabel = speaker ? `<strong>[${speaker}]</strong>: ` : '';
     analysisPanel.innerHTML = `
@@ -385,8 +309,10 @@ function analyzeIndividualLine(text, speaker, start) {
     }
 }
 
+// ===== ===== ===== FILTER SUBTITLES ===== ===== =====
 // used for the search bar to find matching subtitles
 function filterSubtitles() {
+    if (!searchInput) return;
     const searchTerm = searchInput.value.toLowerCase();
     const fileGroups = document.querySelectorAll(".file-group");
     fileGroups.forEach(group => {
@@ -405,67 +331,65 @@ function filterSubtitles() {
     });
 }
 
+// ===== ===== ===== PROTECTED EVENT LISTENERs ===== ===== =====
 // only reads files and saves text to state (Subtitles) or loads media (Video/Audio)
-fileInput.addEventListener('change', async (event) => {
-    const files = event.target.files;
-    uploadedFiles = []; // Clear the old cached subtitle state array
+if (fileInput) {
+    fileInput.addEventListener('change', async (event) => {
+        const files = event.target.files;
+        uploadedFiles = []; // Clear the old cached subtitle state array
 
-    if (!files || files.length === 0) {
+        if (!files || files.length === 0) {
+            renderSubtitles();
+            return;
+        }
+
+        for (const file of files) {
+            const extension = file.name.split('.').pop().toLowerCase();
+            const isMedia = file.type.startsWith('video/') ||
+                file.type.startsWith('audio/') ||
+                ['mp4', 'mkv', 'mov', 'avi', 'ts', 'mp3', 'wav', 'm4a', 'flac'].includes(extension);
+
+            if (extension === 'json') {
+                // Handle Subtitle JSON parsing
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    console.log(`Cached state data for (${file.name})`);
+
+                    uploadedFiles.push({ name: file.name, segments: data.segments });
+                } catch (err) {
+                    console.error(`Error reading file ${file.name}:`, err);
+                    uploadedFiles.push({ name: file.name, error: err.message });
+                }
+            }
+            else if (isMedia) {
+                // Handle Video/Audio stream load
+                try {
+                    const objectURL = URL.createObjectURL(file);
+                    if (videoPlayer) {
+                        videoPlayer.src = objectURL;
+                        videoPlayer.load(); // Forces the player to load the new source
+                        console.log(`Loaded local media file into player: (${file.name})`);
+                    }
+                } catch (err) {
+                    console.error(`Error loading media file ${file.name}:`, err);
+                }
+            }
+        }
+
         renderSubtitles();
-        return;
-    }
+    });
+}
 
-    for (const file of files) {
-        const extension = file.name.split('.').pop().toLowerCase();
-        const isMedia = file.type.startsWith('video/') ||
-            file.type.startsWith('audio/') ||
-            ['mp4', 'mkv', 'mov', 'avi', 'ts', 'mp3', 'wav', 'm4a', 'flac'].includes(extension);
+if (toggleSwitch) toggleSwitch.addEventListener('change', renderSubtitles);
+if (speakerSwitch) speakerSwitch.addEventListener('change', renderSubtitles);
 
-        if (extension === 'json') {
-            // Handle Subtitle JSON parsing
-            try {
-                const text = await file.text();
-                const data = JSON.parse(text);
-                console.log(`Cached state data for (${file.name})`);
-
-                uploadedFiles.push({ name: file.name, segments: data.segments });
-            } catch (err) {
-                console.error(`Error reading file ${file.name}:`, err);
-                uploadedFiles.push({ name: file.name, error: err.message });
-            }
+if (searchButton) searchButton.addEventListener("click", filterSubtitles);
+if (searchInput) {
+    searchInput.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            filterSubtitles();
         }
-        else if (isMedia) {
-            // Handle Video/Audio stream load
-            try {
-                // Create a temporary local URL pointing directly to the file on your disk
-                const objectURL = URL.createObjectURL(file);
-
-                videoPlayer.src = objectURL;
-                videoPlayer.load(); // Forces the player to load the new source
-
-                console.log(`Loaded local media file into player: (${file.name})`);
-            } catch (err) {
-                console.error(`Error loading media file ${file.name}:`, err);
-            }
-        }
-    }
-
-    renderSubtitles();
-});
-
-toggleSwitch.addEventListener('change', () => {
-    renderSubtitles();
-});
-
-speakerSwitch.addEventListener('change', () => {
-    renderSubtitles();
-});
-
-// for the search bar - only runs when search button is clicked/enter is pressed
-searchButton.addEventListener("click", filterSubtitles);
-searchInput.addEventListener("keypress", function (event) {
-    if (event.key === "Enter") {
-        event.preventDefault();
-        filterSubtitles();
-    }
-});
+    });
+}

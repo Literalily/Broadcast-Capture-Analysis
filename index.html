@@ -40,6 +40,10 @@
             <!-- CARD 1 -->
             <div class="card">
                 <h3>Option 1: Transcribe Media Folder</h3>
+                <p>Necessary files can be downloaded <strong><a
+                            href="https://github.com/Literalily/Broadcast-Capture-Analysis">here</a></strong>. Follow
+                    the instructions in the README file.</p>
+
                 <p>Use WhisperX to transcribe a video/audio file.</p>
                 <p>To do this, you must: <br>1. <strong>Paste the file path of the desired folder to be
                         transcribed</strong>,
@@ -162,41 +166,41 @@
                     <!-- The button has been removed -->
                     <p id="result" style="margin-top: 15px;"></p>
 
-                    <script type="module">
-                        import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
-
-                        let classifierPromise = null;
-
-                        // Lazy load the classifier
-                        async function getClassifier() {
-                            if (!classifierPromise) {
-                                classifierPromise = pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english', {
-                                    device: 'wasm',
-                                    dtype: 'q8' // Forces 8-bit quantization to dramatically cut memory usage
-                                });
-                            }
-                            return classifierPromise;
-                        }
-
-                        // glbal so script.js can call it when a subtitle line is clicked
+                    <script>
+                        // Global function so script.js can call it when a subtitle line is clicked
                         window.analyzeText = async function (text) {
                             const resultText = document.getElementById('result');
-                            resultText.innerText = "⏳ Analyzing sentiment... (first run will take some time)";
+                            resultText.innerText = "⏳ Analysing sentiment with Ollama...";
 
                             try {
-                                const classifier = await getClassifier();
-                                const output = await classifier(text);
+                                const response = await fetch('http://localhost:11434/api/generate', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        model: 'phi3', // 'llama3' if you chose that
+                                        prompt: `Analyze the sentiment of this text. Reply with exactly one word: POSITIVE, NEGATIVE, or NEUTRAL. Text: "${text}"`,
+                                        stream: false,
+                                        options: {
+                                            temperature: 0.1 // Keeps the AI factual and strict
+                                        }
+                                    })
+                                });
 
-                                const label = output[0].label;
-                                const score = (output[0].score * 100).toFixed(1);
+                                if (!response.ok) throw new Error("Ollama is not running. Please start Ollama on your computer.");
+
+                                const data = await response.json();
+                                const label = data.response.trim().toUpperCase();
 
                                 // Apply simple colors based on sentiment
-                                const color = label === 'POSITIVE' ? 'green' : (label === 'NEGATIVE' ? 'red' : 'black');
+                                let color = 'black';
+                                if (label.includes('POSITIVE')) color = 'green';
+                                if (label.includes('NEGATIVE')) color = 'red';
 
-                                resultText.innerHTML = `<strong>AI Result:</strong> <span style="color: ${color};">${label}</span> (${score}%)`;
+                                resultText.innerHTML = `<strong>AI Result:</strong> <span style="color: ${color};">${label}</span>`;
+
                             } catch (error) {
-                                console.error("Sentiment AI error:", error);
-                                resultText.innerHTML = `<span style="color: red;">⚠️ AI Failed: ${error.message}</span>`;
+                                console.error("Ollama AI error:", error);
+                                resultText.innerHTML = `<span style="color: red;">⚠️ Local AI Failed: ${error.message}</span>`;
                             }
                         };
                     </script>

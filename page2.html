@@ -123,7 +123,39 @@
             overlay.classList.toggle('show');
         }
 
-        // Read and display subtitles for a specific broadcast item index
+        // trigger AI overview card
+        async function triggerCardAIOverview(globalIndex) {
+            const item = allBroadcastData[globalIndex];
+            if (!item || !item.subtitleFile) {
+                alert("No subtitle file available to generate an overview for this broadcast.");
+                return;
+            }
+
+            const overviewContainer = document.getElementById(`ai-overview-${globalIndex}`);
+            if (!overviewContainer) return;
+
+            overviewContainer.style.display = "block";
+            overviewContainer.innerHTML = `<p class="ai-overview-status">📄 Reading subtitle file for Ollama...</p>`;
+
+            try {
+                // 1. Read the unread JSON File object from disk
+                const textContent = await item.subtitleFile.text();
+                const jsonData = JSON.parse(textContent);
+                const segments = Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
+
+                // 2. Call the exposed generateAIOverview function from script.js
+                if (window.generateAIOverview) {
+                    await window.generateAIOverview(segments, overviewContainer);
+                } else {
+                    overviewContainer.innerHTML = `<p style="color:red;">Error: AI script module not initialized.</p>`;
+                }
+            } catch (err) {
+                console.error("Failed to process subtitles for AI overview:", err);
+                overviewContainer.innerHTML = `<p style="color:red;">Error reading subtitle file: ${err.message}</p>`;
+            }
+        }
+
+        // Read and display subtitles for a specific broadcast item index in popup
         async function loadAndShowSubtitles(globalIndex) {
             const item = allBroadcastData[globalIndex];
             if (!item || !item.subtitleFile) return;
@@ -282,34 +314,34 @@
                         : `<span style="color: red; font-weight: bold; font-size: 12px;">❌ No Subtitles</span>`;
 
                     const card = document.createElement("div");
-                    // Utilizing your existing CSS classes for styling
                     card.className = "ai-overview-container";
                     card.style.display = "flex";
                     card.style.flexDirection = "column";
                     card.style.gap = "10px";
 
                     card.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <h4 style="margin: 0; color: #d7010d; font-size: 18px;">${item.series}</h4>
-            <p style="margin: 3px 0 0 0; font-size: 12px; color: #666;">📁 Folder: <strong>${item.folder}</strong> | 📅
-                Date: ${item.date}</p>
-        </div>
-        ${subBadge}
-    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <h4 style="margin: 0; color: #d7010d; font-size: 18px;">${item.series}</h4>
+                            <p style="margin: 3px 0 0 0; font-size: 12px; color: #666;">📁 Folder: <strong>${item.folder}</strong> | 📅 Date: ${item.date}</p>
+                        </div>
+                        ${subBadge}
+                    </div>
 
-    <!-- Dedicated space for Sentiment Analysis per folder -->
-    <div style="background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
-        <strong>Overall Sentiment:</strong> <span style="color: #888; font-style: italic;">Awaiting analysis...</span>
-    </div>
+                    <!-- Dedicated space for AI Overview Output -->
+                    <div id="ai-overview-${globalIndex}" class="ai-overview-container" style="display: none; margin: 5px 0;"></div>
 
-    <!-- Action Buttons utilizing your .ai-btn CSS -->
-    <div style="display: flex; gap: 10px; margin-top: 5px;">
-<button class="ai-btn" onclick="alert('AI Overview module not yet linked.')">✨ Generate AI Overview</button>
-<button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="loadAndShowSubtitles(${globalIndex})">📝 Show Subtitles</button>
-<button class="ai-btn" style="background-color: #333;" onclick="alert('View Video clicked for ${item.series}')">🎬 View Video</button>
-    </div>
+                    <!-- Dedicated space for Sentiment Analysis per folder -->
+                    <div style="background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+                        <strong>Overall Sentiment:</strong> <span style="color: #888; font-style: italic;">Awaiting analysis...</span>
+                    </div>
 
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <button class="ai-btn" ${!hasSubtitles ? "disabled" : ""} onclick="triggerCardAIOverview(${globalIndex})">✨ Generate AI Overview</button>
+                        <button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="loadAndShowSubtitles(${globalIndex})">📝 Show Subtitles</button>
+                        <button class="ai-btn" style="background-color: #333;" onclick="alert('View Video clicked for ${item.series}')">🎬 View Video</button>
+                    </div>
     `;
                     resultsContainer.appendChild(card);
                 });
@@ -325,13 +357,10 @@
                 const filteredData = allBroadcastData.filter(item => {
                     // Filter by Folder
                     if (selectedFolder !== "all" && item.folder !== selectedFolder) return false;
-
                     // Filter by Series Search
                     if (searchSeries && !item.series.toLowerCase().includes(searchSeries)) return false;
-
                     // Filter by Date Range
                     if (startDate && item.date < startDate) return false;
-
                     if (endDate && item.date > endDate) return false;
 
                     return true;
