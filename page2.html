@@ -86,6 +86,9 @@
 
                     <button id="applyFiltersBtn" class="search-button"
                         style="width: 100%; margin-top: 25px; border-radius: 6px;">Apply Filters</button>
+
+                    <button id="clearFiltersBtn" class="search-button"
+                        style="width: 100%; margin-top: 25px; border-radius: 6px;">Clear Filters</button>
                 </div>
             </div>
 
@@ -231,6 +234,7 @@
             const dateEndFilter = document.getElementById("dateEndFilter");
             const resultsContainer = document.getElementById("broadcast-results");
             const applyBtn = document.getElementById("applyFiltersBtn");
+            const clearBtn = document.getElementById("clearFiltersBtn");
 
             // === 1. Handle Folder Selection
             directoryPicker.addEventListener("change", (event) => {
@@ -253,10 +257,25 @@
 
                     const uniqueKey = `${folderName}/${baseName}`;
 
+                    let dateStr = "00-00-0000";
+
                     if (!fileMap.has(uniqueKey)) {
-                        // Extract a YYYY-MM-DD date from the file metadata
-                        const dateObj = new Date(file.lastModified);
-                        const dateStr = dateObj.toISOString().split('T')[0];
+                        // regex which picks out the date from the title (the file names all have the date time in them)
+                        // (1900-2099) (01-12) (01-31) _ (0000-2400)
+
+                        const dateRegex = /(19\d{2}|20\d{2}|2100)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/;
+
+                        const match = baseName.match(dateRegex);
+                        if (match) {
+                            const fullMatch = match[0];
+                            const year = match[1];
+                            const month = match[2];
+                            const day = match[3];
+                            // dateStr = `${day}-${month}-${year}`;
+                            dateStr = `${year}-${month}-${day}`;
+                        } else {
+                            dateStr = "00-00-0000";
+                        }
 
                         fileMap.set(uniqueKey, {
                             folder: folderName,
@@ -363,6 +382,19 @@
                     if (startDate && item.date < startDate) return false;
                     if (endDate && item.date > endDate) return false;
 
+                    return true;
+                });
+
+                renderResults(filteredData);
+            });
+
+            clearBtn.addEventListener("click", () => {
+                folderFilter.value = "all";
+                seriesFilter.value = "";
+                dateStartFilter.value = "";
+                dateEndFilter.value = "";
+
+                const filteredData = allBroadcastData.filter(item => {
                     return true;
                 });
 

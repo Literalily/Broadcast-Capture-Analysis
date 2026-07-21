@@ -18,7 +18,7 @@ python -m pip install -r requirements.txt
 
 :: Step 3: Launch the browser automatically to the correct URL
 echo [INFO] Launching dashboard interface...
-start https://literalily.github.io/Broadcast-Capture-Analysis/
+start http://127.0.0.1:8000
 
 :: Step 4: Run the FastAPI backend server using the environment shell
 python server.py
