@@ -572,7 +572,7 @@ input:checked+.slider:before {
 
 .viewer-charts {
     flex: auto;
-    height: 800px;
+    height: 600px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -783,7 +783,11 @@ input:checked+.slider:before {
 
 /* Charts */
 #myChart {
-    width:100%;
-    max-height: 300px;
+    width:50%;
+    height: 50%;
+    max-width: 1000px;
+    max-height: 1000px;
+    justify-content: center;
+    align-items: center;
 }
 
