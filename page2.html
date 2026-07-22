@@ -8,6 +8,7 @@
     <link rel="icon" type="image/x-icon" href="assets/favicon.png" />
     <link rel="stylesheet" href="css/styles.css">
     <script type="module" src="js/script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
 
 </head>
 
@@ -104,6 +105,15 @@
             </div>
         </div>
 
+        <!-- CHarts Card -->
+        <div class="card viewer-charts" style="height: auto; margin-top: 20px; padding: 20px;">
+            <h3 class="subtitleHeader">📈 Program Sentiment Trends Over Time</h3>
+            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                Tracking average program sentiment score (-1 = Very Negative, +1 = Very Positive) grouped by broadcast
+                folder.
+            </p>
+            <canvas id="myChart" style="max-height: 400px; width: 100%;"></canvas>
+        </div>
     </div>
 
     <!-- Footer -->
@@ -113,11 +123,17 @@
 
     <script>
         let allBroadcastData = [];
+        let myChartInstance = null;
 
         const colorPool = [
             'color-red', 'color-orange', 'color-green', 'color-blue',
             'color-purple', 'color-pink', 'color-teal', 'color-darkred',
             'color-burnt', 'color-lime', 'color-magenta', 'color-navy'
+        ];
+
+        const chartPalette = [
+            '#d7010d', '#2196F3', '#4CAF50', '#FF9800',
+            '#9C27B0', '#00BCD4', '#E91E63', '#795548', '#3F51B5'
         ];
 
         // for the subtitles popup to show
@@ -237,7 +253,7 @@
             const clearBtn = document.getElementById("clearFiltersBtn");
 
             // === 1. Handle Folder Selection
-            directoryPicker.addEventListener("change", (event) => {
+            directoryPicker.addEventListener("change", async (event) => {
                 const files = event.target.files;
                 if (!files || files.length === 0) return;
 
@@ -254,9 +270,7 @@
                     // Remove extension to find matching video/subtitle pairs
                     const baseName = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
                     const extension = fileName.split('.').pop().toLowerCase();
-
                     const uniqueKey = `${folderName}/${baseName}`;
-
                     let dateStr = "00-00-0000";
 
                     if (!fileMap.has(uniqueKey)) {
@@ -267,12 +281,9 @@
 
                         const match = baseName.match(dateRegex);
                         if (match) {
-                            const fullMatch = match[0];
-                            const year = match[1];
-                            const month = match[2];
-                            const day = match[3];
-                            // dateStr = `${day}-${month}-${year}`;
-                            dateStr = `${year}-${month}-${day}`;
+                            dateStr = `${match[1]}-${match[2]}-${match[3]}`; //YYYY-MM-DD
+                            // dateStr = `${match[3]}-${match[2]}-${match[1]}`; //DD-MM-YYYY
+
                         } else {
                             dateStr = "00-00-0000";
                         }
@@ -281,6 +292,7 @@
                             folder: folderName,
                             series: baseName,
                             date: dateStr,
+                            sentiment: null,
                             videoFile: null,
                             subtitleFile: null
                         });
@@ -300,7 +312,82 @@
 
                 populateFolderDropdown(allBroadcastData);
                 renderResults(allBroadcastData);
+                renderCharts(allBroadcastData);
+
+                // ollama AI analysis
+                for (const item of allBroadcastData) {
+                    if (item.subtitleFile) {
+                        item.sentiment = await getBroadcastSentiment(item.subtitleFile);
+
+                        // Re-render dashboard and charts as each item finishes
+                        renderResults(allBroadcastData);
+                        renderCharts(allBroadcastData);
+                    }
+                }
             });
+
+            // for sentiment analysis - reads the JSON subtitle file and gives it a score -1 to 1, or null if something fails
+            async function getBroadcastSentiment(subtitleFile) {
+                if (!subtitleFile) return null;
+
+                try {
+                    // read and parse the JSON subtitle file
+                    const textContent = await subtitleFile.text();
+                    const jsonData = JSON.parse(textContent);
+                    const segments = Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
+
+                    if (segments.length === 0) return null;
+
+                    // extract and combine the transcript text
+                    const fullText = segments.map(s => s.text ? s.text.trim() : "").join(" ");
+                    let sampleText = fullText;
+                    if (fullText.length > 4000) {
+                        sampleText = fullText.slice(0, 2000) + " ... " + fullText.slice(-2000);
+                    }
+
+                    // prompt Ollama (when too much is input to the AI, it defaults to outputting an overview of the transcript, so this will cut it down to a managable size)
+                    const response = await fetch('http://localhost:11434/api/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: 'phi3',
+                            system: 'You are an API endpoint that outputs ONLY sentiment scores.',
+                            prompt: `Rate the sentiment of this transcript on a scale from -1.0 (extremely negative) to 1.0 (extremely positive).\n` +
+                                `Format your output EXACTLY as: SCORE: X.XX\n\n` +
+                                `Transcript: "${sampleText}"`,
+                            stream: false,
+                            options: {
+                                temperature: 0.0,
+                                num_predict: 15 // Hard stop prevents Ollama from generating summaries!
+                            }
+                        })
+                    });
+
+                    if (!response.ok) throw new Error("Ollama connection failed.");
+
+                    const data = await response.json();
+                    const rawOutput = data.response.trim();
+
+                    // In case of failure, extract only the decimal number from the response
+                    const matches = rawOutput.match(/[-+]?\d*\.?\d+/g);
+
+                    if (matches) {
+                        for (const strNum of matches) {
+                            const parsedScore = parseFloat(strNum);
+                            if (!isNaN(parsedScore) && parsedScore >= -1.0 && parsedScore <= 1.0) {
+                                return parseFloat(parsedScore.toFixed(2));
+                            }
+                        }
+                    }
+                    // returns null if parsing failed or number was out of bounds
+                    console.warn(`Ollama sentiment failed. Raw output was: "${rawOutput}". Falling back to null.`);
+                    return null;
+
+                } catch (err) {
+                    console.error("Failed to analyze broadcast sentiment:", err);
+                    return null;// Return null on network or file error
+                }
+            }
 
             // 2. Populate the Folder Dropdown
             function populateFolderDropdown(data) {
@@ -325,7 +412,7 @@
                     return;
                 }
 
-                dataToRender.forEach((item, index) => {
+                dataToRender.forEach((item) => {
                     const globalIndex = allBroadcastData.indexOf(item);
                     const hasSubtitles = !!item.subtitleFile;
                     const subBadge = hasSubtitles
@@ -337,6 +424,19 @@
                     card.style.display = "flex";
                     card.style.flexDirection = "column";
                     card.style.gap = "10px";
+
+                    let sentimentDisplay = '<span style="color: #888; font-style: italic;">N/A (No Subtitles)</span>';
+
+                    if (item.sentiment !== null && item.sentiment !== undefined) {
+                        let color = 'orange';
+                        if (item.sentiment >= 0.2) color = 'green';
+                        if (item.sentiment <= -0.2) color = 'red';
+
+                        sentimentDisplay = `<span style="color: ${color}; font-weight: bold;">${item.sentiment > 0 ? '+' : ''}${item.sentiment}</span>`;
+                    }
+                    else if (item.subtitleFile) {
+                        sentimentDisplay = `<span style="color: #d7010d; font-style: italic;">⏳ Analyzing...</span>`;
+                    }
 
                     card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -352,7 +452,7 @@
 
                     <!-- Dedicated space for Sentiment Analysis per folder -->
                     <div style="background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
-                        <strong>Overall Sentiment:</strong> <span style="color: #888; font-style: italic;">Awaiting analysis...</span>
+                        <strong>Overall Sentiment:</strong> ${sentimentDisplay}
                     </div>
 
                     <!-- Action Buttons -->
@@ -361,7 +461,7 @@
                         <button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="loadAndShowSubtitles(${globalIndex})">📝 Show Subtitles</button>
                         <button class="ai-btn" style="background-color: #333;" onclick="alert('View Video clicked for ${item.series}')">🎬 View Video</button>
                     </div>
-    `;
+                    `;
                     resultsContainer.appendChild(card);
                 });
             }
@@ -386,20 +486,119 @@
                 });
 
                 renderResults(filteredData);
+                renderCharts(filteredData);
             });
 
             clearBtn.addEventListener("click", () => {
                 folderFilter.value = "all";
                 seriesFilter.value = "";
                 dateStartFilter.value = "";
-                dateEndFilter.value = "";
+                dateEndFilter.value = "";;
 
-                const filteredData = allBroadcastData.filter(item => {
-                    return true;
+                renderResults(allBroadcastData);
+                renderCharts(allBroadcastData);
+            });
+
+            // ===== ===== ===== Multiple Line Chart ===== ===== =====
+            function renderCharts(broadcastData) {
+                // sort chronologically (+remove invalid dates)
+                const validData = broadcastData
+                    .filter(item => item.date && item.date !== "00-00-0000")
+                    .sort((a, b) => a.date.localeCompare(b.date));
+
+                const canvas = document.getElementById("myChart");
+                if (!canvas) return;
+                const ctx = canvas.getContext("2d");
+
+                // Clear chart if no data matches filters
+                if (validData.length === 0) {
+                    if (myChartInstance) myChartInstance.destroy();
+                    return;
+                }
+
+                // Extract unique sorted dates for X-axis labels
+                const xLabels = [...new Set(validData.map(item => item.date))];
+
+                // Extract unique folders
+                const uniqueFolders = [...new Set(validData.map(item => item.folder))];
+
+                // Build a Chart.js dataset for each folder line
+                const datasets = uniqueFolders.map((folderName, index) => {
+                    const folderItems = validData.filter(item => item.folder === folderName);
+
+                    // Create a lookup table for quick date-to-sentiment matching
+                    const dateSentimentMap = {};
+                    folderItems.forEach(item => {
+                        dateSentimentMap[item.date] = item.sentiment;
+                    });
+
+                    // Map xLabels to sentiment values or null if show didn't air that day
+                    const dataPoints = xLabels.map(date =>
+                        dateSentimentMap[date] !== undefined ? dateSentimentMap[date] : null
+                    );
+
+                    const lineColor = chartPalette[index % chartPalette.length];
+
+                    return {
+                        label: folderName,
+                        data: dataPoints,
+                        borderColor: lineColor,
+                        backgroundColor: lineColor,
+                        fill: false,
+                        lineTension: 0.2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        spanGaps: true // Connects line segments across missing dates
+                    };
                 });
 
-                renderResults(filteredData);
-            });
+                // Safely destroy previous chart instance before re-drawing
+                if (myChartInstance) {
+                    myChartInstance.destroy();
+                }
+
+                // Draw Chart
+                myChartInstance = new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        labels: xLabels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        legend: {
+                            display: true,
+                            position: "top"
+                        },
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    min: -1.0,
+                                    max: 1.0,
+                                    stepSize: 0.5,
+                                    callback: function (value) {
+                                        if (value === 1) return '+1.0 (Positive)';
+                                        if (value === 0) return '0.0 (Neutral)';
+                                        if (value === -1) return '-1.0 (Negative)';
+                                        return value.toFixed(1);
+                                    }
+                                },
+                                scaleLabel: {
+                                    display: true,
+                                    labelString: "Sentiment Rating"
+                                }
+                            }],
+                            xAxes: [{
+                                scaleLabel: {
+                                    display: true,
+                                    labelString: "Broadcast Date"
+                                }
+                            }]
+                        }
+                    }
+                });
+            }
         });
     </script>
 
