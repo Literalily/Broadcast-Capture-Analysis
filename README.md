@@ -1,4 +1,48 @@
-# Subtitle-Extraction-and-Visualisation
+# Real-Time Broadcast Subtitle Capture & AI-Driven Analysis System
+
+> **School of Electronics, Electrical Engineering and Computer Science (EEECS)**  
+> **Summer Research Internship 2026** | *Queen's University Belfast*  
+> **Supervisors:** Dr. David Laverty & Dr. Iman Okasili  
+
+---
+
+## 📌 About the Project
+
+This system is designed to ingest live broadcast television subtitle streams, convert them into structured textual datasets, and leverage modern **Natural Language Processing (NLP)** and **Large Language Models (LLMs)** to deliver near-real-time broadcast analytics.  
+By continuously monitoring live programming, the system automates transcript extraction, speaker diarization, content summarisation, and audience sentiment tracking. The project bridges real-time data engineering, applied AI, and full-stack dashboard development.
+
+---
+
+## ✨ Key Features
+
+* **📡 Live Data Ingestion & Processing:** Captures and structures subtitle streams directly from broadcast sources.
+* **🤖 Automated AI Summarization:** Employs local LLMs (Ollama / Phi-3) to condense long transcripts into concise, actionable summaries.
+* **📈 Sentiment Analysis Engine:** Tracks emotional tone, positive/negative polarity, and trends across broadcasts using hybrid VADER and LLM scoring pipelines (`-1.0` to `+1.0`).
+* **👥 Speaker Diarization:** Segments and color-codes transcripts by speaker identity for easy reading and visual analysis.
+* **📊 Interactive Web Dashboard:** Built with FastAPI and Chart.js to filter episodes, view timelines, display subtitle files, and analyze sentiment trends over time.
+
+---
+
+## 🎯 Project Objectives
+
+1. **Capture:** Build a robust, scalable pipeline capable of ingesting live broadcast subtitle streams.
+2. **Structure:** Extract, clean, and structure raw subtitle text into standard JSON format with timestamps.
+3. **Summarize:** Integrate LLM pipelines for instant automated summarization of broadcast episodes.
+4. **Analyze:** Evaluate content sentiment and emotional trajectory across different programs and dates.
+5. **Visualize:** Deliver a web dashboard featuring real-time cards, filtering capabilities, and interactive charts.
+6. **Evaluate:** Measure system reliability, latency, and analysis accuracy under continuous operation.
+
+---
+
+## 🛠️ Technology Stack
+
+| Domain | Technologies |
+| :--- | :--- |
+| **Backend & Web Server** | Python 3.11, FastAPI, Uvicorn |
+| **Artificial Intelligence & NLP** | Ollama (Phi-3), WhisperX, VADER Sentiment Analysis |
+| **Frontend Dashboard** | HTML5, CSS3, JavaScript (ES6+), Chart.js |
+| **Data Format** | JSON subtitle segments, Web Media Formats (`.mp4`, `.mkv`, `.ts`) |
+
 
 ## Required installations:
 ### === **Ollama** ===
