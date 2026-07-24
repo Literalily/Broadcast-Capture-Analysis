@@ -8,6 +8,7 @@
 
 ## 📌 About the Project
 
+[2026 EEECS Summer Research Internships - David Laverty.docx](https://github.com/user-attachments/files/30342763/2026.EEECS.Summer.Research.Internships.-.David.Laverty.docx)  
 This system is designed to ingest live broadcast television subtitle streams, convert them into structured textual datasets, and leverage modern **Natural Language Processing (NLP)** and **Large Language Models (LLMs)** to deliver near-real-time broadcast analytics.  
 By continuously monitoring live programming, the system automates transcript extraction, speaker diarization, content summarisation, and audience sentiment tracking. The project bridges real-time data engineering, applied AI, and full-stack dashboard development.
 
