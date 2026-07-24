@@ -47,7 +47,7 @@ By continuously monitoring live programming, the system automates transcript ext
 
 ## Required installations:
 ### === **Ollama** ===
-1) Download and install Ollama from [here](ollama.com).
+1) Download and install Ollama from [here](https://ollama.com/).
 2) Open your computer's terminal or command prompt.
 3) Run this command:  
 ```
