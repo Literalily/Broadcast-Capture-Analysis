@@ -3,9 +3,44 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import os
+import re
+import json
 import subprocess
-from datetime import datetime
+
+DATE_PATTERN = re.compile(r"(19\d{2}|20\d{2}|2100)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])")
+
+def extract_date_from_name(base_name: str) -> str:
+    match = DATE_PATTERN.search(base_name)
+    if match and len(match.groups()) == 3:
+        return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
+    return "00-00-0000"
+
+# VADER analyzer instance
+sentiment_analyzer = SentimentIntensityAnalyzer()
+
+def score_text(text: str):
+    # """Returns a -1.0..1.0 compound sentiment score for a chunk of text, or
+    # None if there's nothing usable to score."""
+    if not text or not text.strip():
+        return None
+    scores = sentiment_analyzer.polarity_scores(text)
+    return round(scores["compound"], 2)
+
+def score_subtitle_file(file_path: str):
+    # """Reads a WhisperX-style subtitle JSON file from disk and returns its
+    # overall sentiment score. Returns None on any read/parse error rather than
+    # raising, so one bad file can't take down the whole broadcast listing."""
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        segments = data if isinstance(data, list) else data.get("segments", [])
+        full_text = " ".join((seg.get("text") or "").strip() for seg in segments)
+        return score_text(full_text)
+    except Exception as e:
+        print(f"Warning: could not score sentiment for {file_path}: {e}")
+        return None
 
 app = FastAPI()
 
@@ -50,6 +85,13 @@ async def get_page2():
         return FileResponse(page2_path)
     return {"error": "page2.html not found in server root folder."}
 
+@app.get("/index.html")
+async def get_index_page():
+    index_path = os.path.join(script_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"error": "index.html not found in server root folder."}
+
 # API endpoints
 @app.get("/api/broadcast-data")
 async def get_broadcast_data():
@@ -68,16 +110,16 @@ async def get_broadcast_data():
                 base_name = os.path.splitext(file)[0]
                 ext = os.path.splitext(file)[1].lower().replace('.', '')
                 unique_key = f"{folder_name}/{base_name}"
-
+                
                 if unique_key not in file_map:
-                    mod_time = os.path.getmtime(os.path.join(root, file))
-                    date_str = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d')
+                    date_str = extract_date_from_name(base_name)
                     file_map[unique_key] = {
                         "folder": folder_name,
                         "series": base_name,
                         "date": date_str,
                         "videoPath": None,
-                        "subtitlePath": None
+                        "subtitlePath": None,
+                        "sentiment": None
                     }
 
                 web_path = f"/Broadcast-Data/{folder_name}/{file}"
@@ -85,12 +127,23 @@ async def get_broadcast_data():
                     file_map[unique_key]["videoPath"] = web_path
                 elif ext == 'json':
                     file_map[unique_key]["subtitlePath"] = web_path
+                    # Score it right here while we already have the file on disk -
+                    # VADER is a lexicon lookup, not a model, so this adds only a
+                    # few milliseconds per file even for a large folder.
+                    file_map[unique_key]["sentiment"] = score_subtitle_file(os.path.join(root, file))
 
     return [item for item in file_map.values() if item["videoPath"] or item["subtitlePath"]]
 
 class TranscriptionRequest(BaseModel):
     input_path: str
     hf_token: str
+
+class SentimentRequest(BaseModel):
+    text: str
+
+@app.post("/api/sentiment")
+async def analyze_sentiment(data: SentimentRequest):
+    return {"score": score_text(data.text)}
     
 @app.post("/api/transcribe")
 async def start_transcription(data: TranscriptionRequest):

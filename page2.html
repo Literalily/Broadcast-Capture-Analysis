@@ -55,13 +55,37 @@
             </div>
         </div>
 
+        <!-- Popup for videos -->
+        <div id="videoPopupOverlay" class="overlay-container">
+            <div class="popup-box" style="width: 800px; max-height: 75vh; display: flex; flex-direction: column;">
+                <h2 id="videoPopupTitle" style="color: #d7010d; margin-bottom: 10px;">Video</h2>
+
+                <video id="videoPopupPlayer" controls
+                    style="width: 100%; max-height: 55vh; background: #000; border-radius: 6px; margin-bottom: 15px;">
+                    Your browser does not support the video tag.
+                </video>
+
+                <button class="btn-close-popup" onclick="closeVideoPopup()">
+                    Close
+                </button>
+            </div>
+        </div>
+
         <!-- Directory Upload Bar -->
         <div class="card" style="height: auto; margin-bottom: 20px;">
-            <h3 class="subtitleHeader">📂 Select Broadcast Directory</h3>
-            <p style="margin-bottom: 15px; color: #666;">Select your local <strong>Broadcast-Data</strong> folder to
-                load all media and subtitles into the dashboard.</p>
-            <input type="file" id="directoryPicker" webkitdirectory directory multiple class="search-input"
-                style="border-radius: 6px; padding: 5px;" />
+            <h3 class="subtitleHeader">📂 Broadcast Directory</h3>
+            <p id="autoLoadStatus" style="margin-bottom: 15px; color: #666;">
+                🔎 Searching for a <strong>Broadcast-Data</strong> folder next to the server...
+            </p>
+            <button id="refreshServerDataBtn" class="search-button" style="border-radius: 6px; margin-bottom: 10px;">🔄
+                Refresh from Server</button>
+
+            <details style="margin-top: 5px;">
+                <summary style="cursor: pointer; color: #666; font-size: 13px;">Manual override (pick a folder from
+                    this browser instead)</summary>
+                <input type="file" id="directoryPicker" webkitdirectory directory multiple class="search-input"
+                    style="border-radius: 6px; padding: 5px; margin-top: 10px;" />
+            </details>
         </div>
 
         <div class="viewer-container" id="viewer-container">
@@ -142,10 +166,36 @@
             overlay.classList.toggle('show');
         }
 
+        // returns true if broadcast item has subtitle source 
+        function hasSubtitleSource(item) {
+            return !!(item && (item.subtitleFile || item.subtitlePath));
+        }
+
+        // returns true if broadcast item has video source 
+        function hasVideoSource(item) {
+            return !!(item && (item.videoFile || item.videoPath));
+        }
+
+        async function getSubtitleSegments(item) {
+            if (!item) return [];
+            let jsonData;
+            if (item.subtitleFile) {
+                const textContent = await item.subtitleFile.text();
+                jsonData = JSON.parse(textContent);
+            } else if (item.subtitlePath) {
+                const response = await fetch(item.subtitlePath);
+                if (!response.ok) throw new Error(`Failed to fetch subtitle file (${response.status})`);
+                jsonData = await response.json();
+            } else {
+                return [];
+            }
+            return Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
+        }
+
         // trigger AI overview card
         async function triggerCardAIOverview(globalIndex) {
             const item = allBroadcastData[globalIndex];
-            if (!item || !item.subtitleFile) {
+            if (!hasSubtitleSource(item)) {
                 alert("No subtitle file available to generate an overview for this broadcast.");
                 return;
             }
@@ -158,9 +208,7 @@
 
             try {
                 // 1. Read the unread JSON File object from disk
-                const textContent = await item.subtitleFile.text();
-                const jsonData = JSON.parse(textContent);
-                const segments = Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
+                const segments = await getSubtitleSegments(item);
 
                 // 2. Call the exposed generateAIOverview function from script.js
                 if (window.generateAIOverview) {
@@ -177,7 +225,7 @@
         // Read and display subtitles for a specific broadcast item index in popup
         async function loadAndShowSubtitles(globalIndex) {
             const item = allBroadcastData[globalIndex];
-            if (!item || !item.subtitleFile) return;
+            if (!hasSubtitleSource(item)) return;
 
             document.getElementById('popupTitle').textContent = `Subtitles: ${item.series}`;
             const contentContainer = document.getElementById('popupSubtitleContent');
@@ -187,10 +235,7 @@
 
             try {
                 // Read the local JSON file object captured via webkitdirectory
-                const textContent = await item.subtitleFile.text();
-                const jsonData = JSON.parse(textContent);
-
-                const segments = Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
+                const segments = await getSubtitleSegments(item);
 
                 if (segments.length === 0) {
                     contentContainer.innerHTML = `<p style="color: #666;">No subtitle segments found in this JSON file.</p>`;
@@ -235,6 +280,55 @@
             }
         }
 
+        // Tracks a blob URL created for a locally-picked video File, so it can be revoked when the popup closes or a different video is opened.
+        let currentVideoObjectUrl = null;
+
+        // Opens the broadcast video in a popup
+        function viewBroadcastVideo(globalIndex) {
+            const item = allBroadcastData[globalIndex];
+            if (!hasVideoSource(item)) return;
+
+            const player = document.getElementById('videoPopupPlayer');
+            const title = document.getElementById('videoPopupTitle');
+
+            // Clean up any previously created blob URL before assigning a new source
+            if (currentVideoObjectUrl) {
+                URL.revokeObjectURL(currentVideoObjectUrl);
+                currentVideoObjectUrl = null;
+            }
+
+            title.textContent = item.series || 'Video';
+
+            if (item.videoPath) {
+                player.src = item.videoPath;
+            } else if (item.videoFile) {
+                currentVideoObjectUrl = URL.createObjectURL(item.videoFile);
+                player.src = currentVideoObjectUrl;
+            }
+
+            const overlay = document.getElementById('videoPopupOverlay');
+            overlay.classList.add('show');
+            player.play().catch(() => { }); // autoplay can be blocked by the browser; ignore if so
+        }
+
+        // Closes the video popup, pausing playback and releasing the source so it
+        // stops downloading/playing in the background once hidden.
+        function closeVideoPopup() {
+            const overlay = document.getElementById('videoPopupOverlay');
+            const player = document.getElementById('videoPopupPlayer');
+
+            player.pause();
+            player.removeAttribute('src');
+            player.load();
+
+            if (currentVideoObjectUrl) {
+                URL.revokeObjectURL(currentVideoObjectUrl);
+                currentVideoObjectUrl = null;
+            }
+
+            overlay.classList.remove('show');
+        }
+
         // Helper to format seconds into HH:MM:SS or MM:SS
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
@@ -251,6 +345,8 @@
             const resultsContainer = document.getElementById("broadcast-results");
             const applyBtn = document.getElementById("applyFiltersBtn");
             const clearBtn = document.getElementById("clearFiltersBtn");
+            const autoLoadStatus = document.getElementById("autoLoadStatus");
+            const refreshServerDataBtn = document.getElementById("refreshServerDataBtn");
 
             // === 1. Handle Folder Selection
             directoryPicker.addEventListener("change", async (event) => {
@@ -314,11 +410,10 @@
                 renderResults(allBroadcastData);
                 renderCharts(allBroadcastData);
 
-                // ollama AI analysis
+                // sentiment analysis - VADER
                 for (const item of allBroadcastData) {
-                    if (item.subtitleFile) {
-                        item.sentiment = await getBroadcastSentiment(item.subtitleFile);
-
+                    if (hasSubtitleSource(item)) {
+                        item.sentiment = await getBroadcastSentiment(item);
                         // Re-render dashboard and charts as each item finishes
                         renderResults(allBroadcastData);
                         renderCharts(allBroadcastData);
@@ -326,69 +421,78 @@
                 }
             });
 
-            // for sentiment analysis - reads the JSON subtitle file and gives it a score -1 to 1, or null if something fails
-            async function getBroadcastSentiment(subtitleFile) {
-                if (!subtitleFile) return null;
-
+            // auto-load from the server's Broadcast-Data folder
+            async function loadBroadcastsFromServer() {
+                autoLoadStatus.textContent = "🔎 Searching for a Broadcast-Data folder next to the server...";
+                let serverItems;
                 try {
-                    // read and parse the JSON subtitle file
-                    const textContent = await subtitleFile.text();
-                    const jsonData = JSON.parse(textContent);
-                    const segments = Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
-
-                    if (segments.length === 0) return null;
-
-                    // extract and combine the transcript text
-                    const fullText = segments.map(s => s.text ? s.text.trim() : "").join(" ");
-                    let sampleText = fullText;
-                    if (fullText.length > 4000) {
-                        sampleText = fullText.slice(0, 2000) + " ... " + fullText.slice(-2000);
-                    }
-
-                    // prompt Ollama (when too much is input to the AI, it defaults to outputting an overview of the transcript, so this will cut it down to a managable size)
-                    const response = await fetch('http://localhost:11434/api/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            model: 'phi3',
-                            system: 'You are an API endpoint that outputs ONLY sentiment scores.',
-                            prompt: `Rate the sentiment of this transcript on a scale from -1.0 (extremely negative) to 1.0 (extremely positive).\n` +
-                                `Format your output EXACTLY as: SCORE: X.XX\n\n` +
-                                `Transcript: "${sampleText}"`,
-                            stream: false,
-                            options: {
-                                temperature: 0.0,
-                                num_predict: 15 // Hard stop prevents Ollama from generating summaries!
-                            }
-                        })
-                    });
-
-                    if (!response.ok) throw new Error("Ollama connection failed.");
-
-                    const data = await response.json();
-                    const rawOutput = data.response.trim();
-
-                    // In case of failure, extract only the decimal number from the response
-                    const matches = rawOutput.match(/[-+]?\d*\.?\d+/g);
-
-                    if (matches) {
-                        for (const strNum of matches) {
-                            const parsedScore = parseFloat(strNum);
-                            if (!isNaN(parsedScore) && parsedScore >= -1.0 && parsedScore <= 1.0) {
-                                return parseFloat(parsedScore.toFixed(2));
-                            }
-                        }
-                    }
-                    // returns null if parsing failed or number was out of bounds
-                    console.warn(`Ollama sentiment failed. Raw output was: "${rawOutput}". Falling back to null.`);
-                    return null;
-
+                    const response = await fetch('/api/broadcast-data');
+                    if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+                    serverItems = await response.json();
                 } catch (err) {
-                    console.error("Failed to analyze broadcast sentiment:", err);
-                    return null;// Return null on network or file error
+                    console.error("Failed to auto-load broadcast data:", err);
+                    autoLoadStatus.innerHTML = `⚠️ Couldn't reach the server's Broadcast-Data folder ` +
+                        `(${err.message}). Make sure server.py is running and a "Broadcast-Data" folder ` +
+                        `sits next to it, or use the manual override below.`;
+                    return;
+                }
+                if (!serverItems || serverItems.length === 0) {
+                    autoLoadStatus.textContent = "📭 No broadcasts found in a Broadcast-Data folder next to the server. " +
+                        "Add one, or use the manual override below.";
+                    return;
+                }
+                allBroadcastData = serverItems.map(item => ({
+                    folder: item.folder,
+                    series: item.series,
+                    date: item.date,
+                    sentiment: (typeof item.sentiment === 'number') ? item.sentiment : null,
+                    videoFile: null,
+                    subtitleFile: null,
+                    videoPath: item.videoPath || null,
+                    subtitlePath: item.subtitlePath || null
+                }));
+                autoLoadStatus.textContent = `✅ Loaded ${allBroadcastData.length} broadcast(s) automatically from the server's Broadcast-Data folder.`;
+                populateFolderDropdown(allBroadcastData);
+                renderResults(allBroadcastData);
+                renderCharts(allBroadcastData);
+                // Because sentiments (should) have already been generated through server.py, only the items still missing a score need a client-side pass
+                for (const item of allBroadcastData) {
+                    if (hasSubtitleSource(item) && item.sentiment === null) {
+                        item.sentiment = await getBroadcastSentiment(item);
+                        renderResults(allBroadcastData);
+                        renderCharts(allBroadcastData);
+                    }
                 }
             }
 
+            // for sentiment analysis - reads the JSON subtitle file and gives it a score -1 to 1, or null if something fails
+            async function getBroadcastSentiment(item) {
+                if (!hasSubtitleSource(item)) return null;
+
+                try {
+                    const segments = await getSubtitleSegments(item);
+
+                    if (segments.length === 0) return null;
+
+                    const fullText = segments.map(s => s.text ? s.text.trim() : "").join(" ");
+
+                    const response = await fetch('/api/sentiment', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: fullText })
+                    });
+
+                    if (!response.ok) throw new Error(`Sentiment endpoint responded with ${response.status}`);
+
+                    const data = await response.json();
+                    return (typeof data.score === 'number') ? data.score : null;
+
+                } catch (err) {
+                    console.error("Failed to analyze broadcast sentiment:", err);
+                    return null; // Return null on network or file error
+                }
+            }
+            
             // 2. Populate the Folder Dropdown
             function populateFolderDropdown(data) {
                 // Keep the "View All" option, clear the rest
@@ -414,7 +518,8 @@
 
                 dataToRender.forEach((item) => {
                     const globalIndex = allBroadcastData.indexOf(item);
-                    const hasSubtitles = !!item.subtitleFile;
+                    const hasSubtitles = hasSubtitleSource(item);
+                    const hasVideo = hasVideoSource(item);
                     const subBadge = hasSubtitles
                         ? `<span style="color: green; font-weight: bold; font-size: 12px;">✅ Subtitles Found</span>`
                         : `<span style="color: red; font-weight: bold; font-size: 12px;">❌ No Subtitles</span>`;
@@ -434,7 +539,7 @@
 
                         sentimentDisplay = `<span style="color: ${color}; font-weight: bold;">${item.sentiment > 0 ? '+' : ''}${item.sentiment}</span>`;
                     }
-                    else if (item.subtitleFile) {
+                    else if (hasSubtitles) {
                         sentimentDisplay = `<span style="color: #d7010d; font-style: italic;">⏳ Analyzing...</span>`;
                     }
 
@@ -459,7 +564,7 @@
                     <div style="display: flex; gap: 10px; margin-top: 5px;">
                         <button class="ai-btn" ${!hasSubtitles ? "disabled" : ""} onclick="triggerCardAIOverview(${globalIndex})">✨ Generate AI Overview</button>
                         <button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="loadAndShowSubtitles(${globalIndex})">📝 Show Subtitles</button>
-                        <button class="ai-btn" style="background-color: #333;" onclick="alert('View Video clicked for ${item.series}')">🎬 View Video</button>
+                        <button class="ai-btn" style="background-color: #333;" ${!hasVideo ? "disabled" : ""} onclick="viewBroadcastVideo(${globalIndex})">🎬 View Video</button>
                     </div>
                     `;
                     resultsContainer.appendChild(card);
@@ -545,7 +650,7 @@
                         borderColor: lineColor,
                         backgroundColor: lineColor,
                         fill: false,
-                        lineTension: 0.6,
+                        lineTension: 0.4,
                         pointRadius: 5,
                         pointHoverRadius: 7,
                         spanGaps: true // Connects line segments across missing dates
@@ -599,6 +704,11 @@
                     }
                 });
             }
+            // manual refresh button and auto-load on page ready
+            refreshServerDataBtn.addEventListener("click", () => {
+                loadBroadcastsFromServer();
+            });
+            loadBroadcastsFromServer();
         });
     </script>
 

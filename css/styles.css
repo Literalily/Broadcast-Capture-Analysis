@@ -783,8 +783,8 @@ input:checked+.slider:before {
 
 /* Charts */
 #myChart {
-    width:50%;
-    height: 50%;
+    /* width:50%;
+    height: 50%; */
     max-width: 1000px;
     max-height: 1000px;
     justify-content: center;
