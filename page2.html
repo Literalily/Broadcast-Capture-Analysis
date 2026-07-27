@@ -103,6 +103,10 @@
                     <input type="text" id="seriesFilter" class="search-input" style="border-radius: 6px;"
                         placeholder="Search episodes...">
 
+                    <label style="margin-top: 15px;">Search Inside Subtitles:</label>
+                    <input type="text" id="subtitleKeywordFilter" class="search-input" style="border-radius: 6px;"
+                        placeholder="Search transcript content...">
+
                     <label style="margin-top: 15px;">Date From:</label>
                     <input type="date" id="dateStartFilter" class="search-input" style="border-radius: 6px;">
 
@@ -137,7 +141,15 @@
                 folder.
             </p>
             <canvas id="myChart" style="max-height: 400px; width: 100%;"></canvas>
+
+            <!-- Bar Chart Card -->
+            <h3 class="subtitleHeader">📊 Average Sentiment by Folder</h3>
+            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                Comparing mean sentiment by source.
+            </p>
+            <canvas id="barChart" style="max-height: 400px; width: 100%;"></canvas>
         </div>
+
     </div>
 
     <!-- Footer -->
@@ -176,21 +188,54 @@
             return !!(item && (item.videoFile || item.videoPath));
         }
 
+        // async function getSubtitleSegments(item) {
+        //     if (!item) return [];
+        //     let jsonData;
+        //     if (item.subtitleFile) {
+        //         const textContent = await item.subtitleFile.text();
+        //         jsonData = JSON.parse(textContent);
+        //     } else if (item.subtitlePath) {
+        //         const response = await fetch(item.subtitlePath);
+        //         if (!response.ok) throw new Error(`Failed to fetch subtitle file (${response.status})`);
+        //         jsonData = await response.json();
+        //     } else {
+        //         return [];
+        //     }
+        //     return Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
+        // }
         async function getSubtitleSegments(item) {
-            if (!item) return [];
+
+            if (!item)
+                return [];
+            if (item.cachedSegments) {
+                return item.cachedSegments;
+            }
+
             let jsonData;
+
             if (item.subtitleFile) {
                 const textContent = await item.subtitleFile.text();
                 jsonData = JSON.parse(textContent);
-            } else if (item.subtitlePath) {
+            }
+            else if (item.subtitlePath) {
+                console.log("Reading subtitle JSON:", item.series);
                 const response = await fetch(item.subtitlePath);
-                if (!response.ok) throw new Error(`Failed to fetch subtitle file (${response.status})`);
+                if (!response.ok)
+                    throw new Error(`Failed to fetch subtitle file (${response.status})`);
                 jsonData = await response.json();
-            } else {
+            }
+            else {
                 return [];
             }
-            return Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
+
+            const segments = Array.isArray(jsonData)
+                ? jsonData
+                : (jsonData.segments || []);
+            item.cachedSegments = segments;
+
+            return segments;
         }
+
 
         // trigger AI overview card
         async function triggerCardAIOverview(globalIndex) {
@@ -340,6 +385,7 @@
             const directoryPicker = document.getElementById("directoryPicker");
             const folderFilter = document.getElementById("folderFilter");
             const seriesFilter = document.getElementById("seriesFilter");
+            const subtitleKeywordFilter = document.getElementById("subtitleKeywordFilter");
             const dateStartFilter = document.getElementById("dateStartFilter");
             const dateEndFilter = document.getElementById("dateEndFilter");
             const resultsContainer = document.getElementById("broadcast-results");
@@ -389,8 +435,10 @@
                             series: baseName,
                             date: dateStr,
                             sentiment: null,
+                            sentimentAttempted: false, //added so that if sentiment analysis fails, it says so instead of saying 'Analysising...' forever
                             videoFile: null,
-                            subtitleFile: null
+                            subtitleFile: null,
+                            cachedSegments: null
                         });
                     }
 
@@ -403,32 +451,74 @@
                     }
                 }
 
-                // Filter out groups that don't have at least a video file
+                // // Filter out groups that don't have at least a video file
+                // allBroadcastData = Array.from(fileMap.values()).filter(item => item.videoFile);
+
+                // populateFolderDropdown(allBroadcastData);
+                // renderResults(allBroadcastData);
+                // renderCharts(allBroadcastData);
+                // renderBarChart(allBroadcastData);
+
+                // sentiment analysis - VADER
+                // for (const item of allBroadcastData) {
+                //     if (hasSubtitleSource(item)) {
+                //         item.sentiment = await getBroadcastSentiment(item);
+                //         item.sentimentAttempted = true;
+                //         // Re-render dashboard and charts as each item finishes
+                //         renderResults(allBroadcastData);
+                //         renderCharts(allBroadcastData);
+                //         renderBarChart(allBroadcastData);
+                //     }
+                // }
+
+                // ===== TESTER MIGHT BREAK EVERYTHING EEK ===== 
+                // Analyse all broadcasts first
                 allBroadcastData = Array.from(fileMap.values()).filter(item => item.videoFile);
 
+                // Show cards immediately
                 populateFolderDropdown(allBroadcastData);
                 renderResults(allBroadcastData);
                 renderCharts(allBroadcastData);
+                renderBarChart(allBroadcastData);
 
-                // sentiment analysis - VADER
-                for (const item of allBroadcastData) {
-                    if (hasSubtitleSource(item)) {
+                // Calculate sentiments in parallel
+                await Promise.all(
+
+                    allBroadcastData.map(async (item) => {
+
+                        if (!hasSubtitleSource(item))
+                            return;
+
                         item.sentiment = await getBroadcastSentiment(item);
-                        // Re-render dashboard and charts as each item finishes
-                        renderResults(allBroadcastData);
-                        renderCharts(allBroadcastData);
-                    }
-                }
+                        item.sentimentAttempted = true;
+
+                    })
+
+                );
+
+                // Refresh once
+                renderResults(allBroadcastData);
+                renderCharts(allBroadcastData);
+                renderBarChart(allBroadcastData);
+
             });
 
             // auto-load from the server's Broadcast-Data folder
+            let myBarChartInstance = null;
+
+            // Optimized server loader - eliminates duplicate client-side re-calculation loops
             async function loadBroadcastsFromServer() {
                 autoLoadStatus.textContent = "🔎 Searching for a Broadcast-Data folder next to the server...";
                 let serverItems;
+                console.log("Clicked button");
                 try {
+                    console.log("trying");
                     const response = await fetch('/api/broadcast-data');
+                    console.log("await fetch");
                     if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+                    console.log("server response: ", response.status);
                     serverItems = await response.json();
+                    console.log("serverItems", serverItems);
                 } catch (err) {
                     console.error("Failed to auto-load broadcast data:", err);
                     autoLoadStatus.innerHTML = `⚠️ Couldn't reach the server's Broadcast-Data folder ` +
@@ -437,32 +527,118 @@
                     return;
                 }
                 if (!serverItems || serverItems.length === 0) {
-                    autoLoadStatus.textContent = "📭 No broadcasts found in a Broadcast-Data folder next to the server. " +
-                        "Add one, or use the manual override below.";
+                    autoLoadStatus.textContent = "📭 No broadcasts found in a Broadcast-Data folder next to the server. Add one, or use the manual override below.";
                     return;
                 }
+                console.log("end of segment");
+
                 allBroadcastData = serverItems.map(item => ({
                     folder: item.folder,
                     series: item.series,
                     date: item.date,
                     sentiment: (typeof item.sentiment === 'number') ? item.sentiment : null,
+                    sentimentAttempted: (typeof item.sentiment === 'number'),
                     videoFile: null,
                     subtitleFile: null,
                     videoPath: item.videoPath || null,
-                    subtitlePath: item.subtitlePath || null
+                    subtitlePath: item.subtitlePath || null,
+                    cachedSegments: null
                 }));
+
                 autoLoadStatus.textContent = `✅ Loaded ${allBroadcastData.length} broadcast(s) automatically from the server's Broadcast-Data folder.`;
                 populateFolderDropdown(allBroadcastData);
                 renderResults(allBroadcastData);
                 renderCharts(allBroadcastData);
-                // Because sentiments (should) have already been generated through server.py, only the items still missing a score need a client-side pass
-                for (const item of allBroadcastData) {
-                    if (hasSubtitleSource(item) && item.sentiment === null) {
-                        item.sentiment = await getBroadcastSentiment(item);
-                        renderResults(allBroadcastData);
-                        renderCharts(allBroadcastData);
-                    }
+                renderBarChart(allBroadcastData);
+            }
+
+            // Render New Average Sentiment Bar Chart with Mean Benchmark Bar
+            function renderBarChart(broadcastData) {
+                const validData = broadcastData.filter(item => typeof item.sentiment === 'number');
+                const canvas = document.getElementById("barChart");
+                if (!canvas) return;
+                const ctx = canvas.getContext("2d");
+
+                if (validData.length === 0) {
+                    if (myBarChartInstance) myBarChartInstance.destroy();
+                    return;
                 }
+
+                // Aggregate sentiment scores per folder
+                const folderScores = {};
+                validData.forEach(item => {
+                    if (!folderScores[item.folder]) folderScores[item.folder] = [];
+                    folderScores[item.folder].push(item.sentiment);
+                });
+
+                const folderNames = Object.keys(folderScores);
+                const folderAverages = folderNames.map(name => {
+                    const scores = folderScores[name];
+                    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+                    return parseFloat(avg.toFixed(2));
+                });
+
+                // Compute dataset-wide overall mean
+                const overallSum = validData.reduce((acc, item) => acc + item.sentiment, 0);
+                const overallMean = parseFloat((overallSum / validData.length).toFixed(2));
+
+                // Append 'Mean Sentiment' bar at the end
+                const chartLabels = [...folderNames, "Mean Sentiment"];
+                const chartData = [...folderAverages, overallMean];
+
+                // Style bars matching theme palette + distinct accent red for Mean Sentiment
+                const barColors = chartLabels.map((label, idx) => {
+                    if (label === "Mean Sentiment") return "#d7010d"; // Signature theme red
+                    return chartPalette[idx % chartPalette.length];
+                });
+
+                if (myBarChartInstance) {
+                    myBarChartInstance.destroy();
+                }
+
+                myBarChartInstance = new Chart(ctx, {
+                    type: "bar",
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: "Average Sentiment Score",
+                            data: chartData,
+                            backgroundColor: barColors,
+                            borderColor: barColors,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        legend: { display: false },
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    min: -1.0,
+                                    max: 1.0,
+                                    stepSize: 0.2,
+                                    callback: function (val) {
+                                        if (val === 1) return '+1.0 (Positive)';
+                                        if (val === 0) return '0.0 (Neutral)';
+                                        if (val === -1) return '-1.0 (Negative)';
+                                        return val.toFixed(1);
+                                    }
+                                },
+                                scaleLabel: {
+                                    display: true,
+                                    labelString: "Average Score (-1.0 to +1.0)"
+                                }
+                            }],
+                            xAxes: [{
+                                scaleLabel: {
+                                    display: true,
+                                    labelString: "Folder / Overall Benchmark"
+                                }
+                            }]
+                        }
+                    }
+                });
             }
 
             // for sentiment analysis - reads the JSON subtitle file and gives it a score -1 to 1, or null if something fails
@@ -492,7 +668,7 @@
                     return null; // Return null on network or file error
                 }
             }
-            
+
             // 2. Populate the Folder Dropdown
             function populateFolderDropdown(data) {
                 // Keep the "View All" option, clear the rest
@@ -539,6 +715,9 @@
 
                         sentimentDisplay = `<span style="color: ${color}; font-weight: bold;">${item.sentiment > 0 ? '+' : ''}${item.sentiment}</span>`;
                     }
+                    else if (item.sentimentAttempted) {
+                        sentimentDisplay = `<span style="color: #999; font-style: italic;" title="Check the browser console and server terminal for details">⚠️ Unavailable</span>`;
+                    }
                     else if (hasSubtitles) {
                         sentimentDisplay = `<span style="color: #d7010d; font-style: italic;">⏳ Analyzing...</span>`;
                     }
@@ -571,12 +750,46 @@
                 });
             }
 
+            // Reads every subtitle file (server hosted or picked locally) and returns the set of "folde/series" keys whose transcript contains the given keyword
+            async function findSubtitleKeywordMatches(keyword) {
+                const lowerKeyword = keyword.toLowerCase();
+                const matches = new Set();
+
+                await Promise.all(allBroadcastData.map(async (item) => {
+                    if (!hasSubtitleSource(item)) return;
+                    try {
+                        const segments = await getSubtitleSegments(item);
+                        const fullText = segments.map(s => s.text || "").join(" ").toLowerCase();
+                        if (fullText.includes(lowerKeyword)) {
+                            matches.add(`${item.folder}/${item.series}`);
+                        }
+                    } catch (err) {
+                        console.error(`Could not search subtitles for "${item.series}":`, err);
+                    }
+                }));
+
+                return matches;
+            }
+
+
             // 4. Handle Filter Logic
-            applyBtn.addEventListener("click", () => {
+            applyBtn.addEventListener("click", async () => {
                 const selectedFolder = folderFilter.value;
                 const searchSeries = seriesFilter.value.toLowerCase();
                 const startDate = dateStartFilter.value;
                 const endDate = dateEndFilter.value;
+                const subtitleKeyword = subtitleKeywordFilter.value.trim();
+
+                // only search subtitle content when necessary (keyword actually entered) because it means reading every transcript
+                let keywordMatches = null;
+                if (subtitleKeyword) {
+                    const originalLabel = applyBtn.textContent;
+                    applyBtn.disabled = true;
+                    applyBtn.textContent = "🔎 Searching transcripts...";
+                    keywordMatches = await findSubtitleKeywordMatches(subtitleKeyword);
+                    applyBtn.disabled = false;
+                    applyBtn.textContent = originalLabel;
+                }
 
                 const filteredData = allBroadcastData.filter(item => {
                     // Filter by Folder
@@ -586,22 +799,27 @@
                     // Filter by Date Range
                     if (startDate && item.date < startDate) return false;
                     if (endDate && item.date > endDate) return false;
+                    // filter by subtitle keyword match
+                    if (keywordMatches && !keywordMatches.has(`${item.folder}/${item.series}`)) return false;
 
                     return true;
                 });
 
                 renderResults(filteredData);
                 renderCharts(filteredData);
+                renderBarChart(filteredData);
             });
 
             clearBtn.addEventListener("click", () => {
                 folderFilter.value = "all";
                 seriesFilter.value = "";
+                subtitleKeywordFilter.value = "";
                 dateStartFilter.value = "";
                 dateEndFilter.value = "";;
 
                 renderResults(allBroadcastData);
                 renderCharts(allBroadcastData);
+                renderBarChart(allBroadcastData);
             });
 
             // ===== ===== ===== Multiple Line Chart ===== ===== =====
@@ -704,6 +922,7 @@
                     }
                 });
             }
+
             // manual refresh button and auto-load on page ready
             refreshServerDataBtn.addEventListener("click", () => {
                 loadBroadcastsFromServer();

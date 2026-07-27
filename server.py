@@ -29,15 +29,45 @@ def score_text(text: str):
     return round(scores["compound"], 2)
 
 def score_subtitle_file(file_path: str):
-    # """Reads a WhisperX-style subtitle JSON file from disk and returns its
-    # overall sentiment score. Returns None on any read/parse error rather than
-    # raising, so one bad file can't take down the whole broadcast listing."""
+    # Reads subtitle JSON file from disk and returns its overall sentiment score. 
+    # Returns None on any read/parse error rather than raising, so one bad file can't break the whole broadcast listing.
+    
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         segments = data if isinstance(data, list) else data.get("segments", [])
-        full_text = " ".join((seg.get("text") or "").strip() for seg in segments)
+        if not segments:
+            return None
+        
+        # Faster (reads it all at once) ============
+        full_text = " ".join(
+            (seg.get("text") or "").strip()
+            for seg in segments
+            if (seg.get("text") or "").strip()
+        )
+        
+        if not full_text:
+            return None
+        
         return score_text(full_text)
+        # ==========================================
+    
+        # Slower (line by line) ====================
+        # segment_scores = []
+        # for seg in segments:
+        #     txt = (seg.get("text") or "").strip()
+        #     if txt:
+        #         # scores each line individually
+        #         compound = sentiment_analyzer.polarity_scores(txt)["compound"]
+        #         segment_scores.append(compound)
+                
+        # if not segment_scores:
+        #     return None
+        
+        # # return avergae sentiment across all lines
+        # avg_score = sum(segment_scores) / len(segment_scores)
+        # return round(avg_score, 2)
+
     except Exception as e:
         print(f"Warning: could not score sentiment for {file_path}: {e}")
         return None
@@ -53,48 +83,37 @@ app.add_middleware(
 )
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# mount static asset folders
-css_dir = os.path.join(script_dir, "css")
-if os.path.exists(css_dir):
-    app.mount("/css", StaticFiles(directory=css_dir), name="css")
 
-js_dir = os.path.join(script_dir, "js")
-if os.path.exists(js_dir):
-    app.mount("/js", StaticFiles(directory=js_dir), name="js")
-
-assets_dir = os.path.join(script_dir, "assets")
-if os.path.exists(assets_dir):
-    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-
+# Mount static asset folders safely
+for folder in ["css", "js", "assets"]:
+    target = os.path.join(script_dir, folder)
+    if os.path.exists(target):
+        app.mount(f"/{folder}", StaticFiles(directory=target), name=folder)
+        
 broadcast_dir = os.path.join(script_dir, "Broadcast-Data")
+if not os.path.exists(broadcast_dir):
+    # Try lowercase fallback if Broadcast-data was created instead
+    alt_dir = os.path.join(script_dir, "Broadcast-data")
+    if os.path.exists(alt_dir):
+        broadcast_dir = alt_dir
+
 if os.path.exists(broadcast_dir):
     app.mount("/Broadcast-Data", StaticFiles(directory=broadcast_dir), name="broadcast-data")
-
-# html page routes
+    
+    
+# HTML Page Routes
 @app.get("/")
-async def get_dashboard():
-    index_path = os.path.join(script_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"error": "index.html not found in server root folder."}
+@app.get("/index.html")
+def get_dashboard():
+    return FileResponse(os.path.join(script_dir, "index.html"))
 
 @app.get("/page2.html")
-async def get_page2():
-    page2_path = os.path.join(script_dir, "page2.html")
-    if os.path.exists(page2_path):
-        return FileResponse(page2_path)
-    return {"error": "page2.html not found in server root folder."}
+def get_page2():
+    return FileResponse(os.path.join(script_dir, "page2.html"))
 
-@app.get("/index.html")
-async def get_index_page():
-    index_path = os.path.join(script_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"error": "index.html not found in server root folder."}
-
-# API endpoints
-@app.get("/api/broadcast-data")
-async def get_broadcast_data():
+# API Endpoints
+@app.get("/api/broadcast-data") #removed async because it was causing problems (see #*1)
+def get_broadcast_data():
     if not os.path.exists(broadcast_dir):
         return []
     
@@ -105,64 +124,63 @@ async def get_broadcast_data():
             rel_path = os.path.relpath(os.path.join(root, file), broadcast_dir)
             parts = rel_path.split(os.sep)
 
+            # Handles files placed directly in Broadcast-Data as well as subfolders
             if len(parts) >= 2:
                 folder_name = parts[0]
-                base_name = os.path.splitext(file)[0]
-                ext = os.path.splitext(file)[1].lower().replace('.', '')
-                unique_key = f"{folder_name}/{base_name}"
-                
-                if unique_key not in file_map:
-                    date_str = extract_date_from_name(base_name)
-                    file_map[unique_key] = {
-                        "folder": folder_name,
-                        "series": base_name,
-                        "date": date_str,
-                        "videoPath": None,
-                        "subtitlePath": None,
-                        "sentiment": None
-                    }
+            else:
+                folder_name = "General Broadcasts"
 
-                web_path = f"/Broadcast-Data/{folder_name}/{file}"
-                if ext in ['mp4', 'mkv', 'mov', 'avi', 'ts', 'm4v', 'mp3', 'wav', 'flac']:
-                    file_map[unique_key]["videoPath"] = web_path
-                elif ext == 'json':
-                    file_map[unique_key]["subtitlePath"] = web_path
-                    # Score it right here while we already have the file on disk -
-                    # VADER is a lexicon lookup, not a model, so this adds only a
-                    # few milliseconds per file even for a large folder.
-                    file_map[unique_key]["sentiment"] = score_subtitle_file(os.path.join(root, file))
+            base_name = os.path.splitext(file)[0]
+            ext = os.path.splitext(file)[1].lower().replace('.', '')
+            unique_key = f"{folder_name}/{base_name}"
+            
+            if unique_key not in file_map:
+                date_str = extract_date_from_name(base_name)
+                file_map[unique_key] = {
+                    "folder": folder_name,
+                    "series": base_name,
+                    "date": date_str,
+                    "videoPath": None,
+                    "subtitlePath": None,
+                    "sentiment": None
+                }
+
+            # Normalize path for web browser consumption
+            clean_rel = rel_path.replace(os.sep, '/')
+            web_path = f"/Broadcast-Data/{clean_rel}"
+
+            if ext in ['mp4', 'mkv', 'mov', 'avi', 'ts', 'm4v', 'mp3', 'wav', 'flac']:
+                file_map[unique_key]["videoPath"] = web_path
+            elif ext == 'json':
+                file_map[unique_key]["subtitlePath"] = web_path
+                # Pre-calculate line-averaged sentiment instantly on backend scan
+                file_map[unique_key]["sentiment"] = score_subtitle_file(os.path.join(root, file))
 
     return [item for item in file_map.values() if item["videoPath"] or item["subtitlePath"]]
+
+class SentimentRequest(BaseModel):
+    text: str
 
 class TranscriptionRequest(BaseModel):
     input_path: str
     hf_token: str
 
-class SentimentRequest(BaseModel):
-    text: str
-
 @app.post("/api/sentiment")
-async def analyze_sentiment(data: SentimentRequest):
+def analyze_sentiment(data: SentimentRequest):
     return {"score": score_text(data.text)}
     
 @app.post("/api/transcribe")
 async def start_transcription(data: TranscriptionRequest):
-    # clean up the incoming input directory string
     input_dir = data.input_path.strip('"').strip("'")
-    
     if not os.path.isdir(input_dir):
         raise HTTPException(status_code=400, detail="Provided broadcast folder path does not exist.")
     
-    # automatically determine output path and script location
     output_dir = input_dir
     batch_script = os.path.join(script_dir, "WhisperXDiarize.bat")
     venv_dir = os.path.join(script_dir, "whisperx-env")
     
-    if not os.path.exists(venv_dir):
-        raise HTTPException(status_code=500, detail="Python virtual environment 'whisperx-env' missing.")
-        
-    if not os.path.exists(batch_script):
-        raise HTTPException(status_code=500, detail="Core execution batch script asset missing.")
+    if not os.path.exists(venv_dir) or not os.path.exists(batch_script):
+        raise HTTPException(status_code=500, detail="Backend execution script or environment missing.")
 
     try:
         # Popen fires the process in the background, allowing the browser to immediately get a success confirmation instead of freezing/timing out.
@@ -174,3 +192,8 @@ async def start_transcription(data: TranscriptionRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
+    
+    
+#*1) Changed "async def" to standard "def" so FastAPI uses background worker threads. 
+    # I was having repeated errors where the network shows tasks like sentiment analysis and loading files as (Pending) constantly with no progress. 
+    # In FastAPI, when you mark a function as async def, FastAPI expects you to use asynchronous non-blocking code inside it. However, inside get_broadcast_data(), I was running synchronous disk commands.
