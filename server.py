@@ -21,56 +21,57 @@ def extract_date_from_name(base_name: str) -> str:
 sentiment_analyzer = SentimentIntensityAnalyzer()
 
 def score_text(text: str):
-    # """Returns a -1.0..1.0 compound sentiment score for a chunk of text, or
-    # None if there's nothing usable to score."""
+    # Returns a -1.0..1.0 compound sentiment score for a chunk of text, or None if there's nothing usable to score.
     if not text or not text.strip():
         return None
     scores = sentiment_analyzer.polarity_scores(text)
     return round(scores["compound"], 2)
 
-def score_subtitle_file(file_path: str):
+# In-memory index cache (see *2)
+_subtitle_cache = {}
+
+def get_subtitle_data(file_path: str):
     # Reads subtitle JSON file from disk and returns its overall sentiment score. 
     # Returns None on any read/parse error rather than raising, so one bad file can't break the whole broadcast listing.
     
     try:
+        mtime = os.path.getmtime(file_path)
+    except OSError as e:
+        print(f"Warning: could not stat {file_path}: {e}")
+        return None, []
+
+    cached = _subtitle_cache.get(file_path)
+    if cached and cached[0] == mtime:
+        return cached[1]["sentiment"], cached[1]["segments"]
+
+    try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        segments = data if isinstance(data, list) else data.get("segments", [])
-        if not segments:
-            return None
-        
-        # Faster (reads it all at once) ============
-        full_text = " ".join(
-            (seg.get("text") or "").strip()
-            for seg in segments
-            if (seg.get("text") or "").strip()
-        )
-        
-        if not full_text:
-            return None
-        
-        return score_text(full_text)
-        # ==========================================
-    
-        # Slower (line by line) ====================
-        # segment_scores = []
-        # for seg in segments:
-        #     txt = (seg.get("text") or "").strip()
-        #     if txt:
-        #         # scores each line individually
-        #         compound = sentiment_analyzer.polarity_scores(txt)["compound"]
-        #         segment_scores.append(compound)
-                
-        # if not segment_scores:
-        #     return None
-        
-        # # return avergae sentiment across all lines
-        # avg_score = sum(segment_scores) / len(segment_scores)
-        # return round(avg_score, 2)
+        raw_segments = data if isinstance(data, list) else data.get("segments", [])
+
+        segments = []
+        line_scores = []
+        for seg in raw_segments:
+            text = (seg.get("text") or "").strip()
+            if not text:
+                continue
+            line_sentiment = score_text(text)
+            if line_sentiment is not None:
+                line_scores.append(line_sentiment)
+            segments.append({
+                "text": text,
+                "start": seg.get("start"),
+                "end": seg.get("end"),
+                "sentiment": line_sentiment
+            })
+
+        overall_sentiment = round(sum(line_scores) / len(line_scores), 2) if line_scores else None
+        _subtitle_cache[file_path] = (mtime, {"sentiment": overall_sentiment, "segments": segments})
+        return overall_sentiment, segments
 
     except Exception as e:
-        print(f"Warning: could not score sentiment for {file_path}: {e}")
-        return None
+        print(f"Warning: could not read/score {file_path}: {e}")
+        return None, []
 
 app = FastAPI()
 
@@ -92,7 +93,7 @@ for folder in ["css", "js", "assets"]:
         
 broadcast_dir = os.path.join(script_dir, "Broadcast-Data")
 if not os.path.exists(broadcast_dir):
-    # Try lowercase fallback if Broadcast-data was created instead
+    # lowercase fallback if Broadcast-data was created instead
     alt_dir = os.path.join(script_dir, "Broadcast-data")
     if os.path.exists(alt_dir):
         broadcast_dir = alt_dir
@@ -153,10 +154,50 @@ def get_broadcast_data():
                 file_map[unique_key]["videoPath"] = web_path
             elif ext == 'json':
                 file_map[unique_key]["subtitlePath"] = web_path
-                # Pre-calculate line-averaged sentiment instantly on backend scan
-                file_map[unique_key]["sentiment"] = score_subtitle_file(os.path.join(root, file))
+                # Cached after the first read - see get_subtitle_data() above
+                sentiment, _ = get_subtitle_data(os.path.join(root, file))
+                file_map[unique_key]["sentiment"] = sentiment
 
     return [item for item in file_map.values() if item["videoPath"] or item["subtitlePath"]]
+
+@app.get("/api/search-subtitles")
+def search_subtitles(q: str):
+    # Keyword search - checks every subtitle file for a keyword and returns each matching line
+    # along with the lines immediately before and after for context
+    # Uses the same cache as /api/broadcast-data, so repeat searches should be near-instant
+    query = q.strip().lower()
+    if not query or not os.path.exists(broadcast_dir):
+        return []
+
+    matches = []
+    for root, dirs, files in os.walk(broadcast_dir):
+        for file in files:
+            if not file.lower().endswith(".json"):
+                continue
+
+            rel_path = os.path.relpath(os.path.join(root, file), broadcast_dir)
+            parts = rel_path.split(os.sep)
+            folder_name = parts[0] if len(parts) >= 2 else "General Broadcasts"
+            base_name = os.path.splitext(file)[0]
+            date_str = extract_date_from_name(base_name)
+
+            _, segments = get_subtitle_data(os.path.join(root, file))
+
+            for i, seg in enumerate(segments):
+                if query in seg["text"].lower():
+                    matches.append({
+                        "folder": folder_name,
+                        "series": base_name,
+                        "date": date_str,
+                        "text": seg["text"],
+                        "contextBefore": segments[i - 1]["text"] if i > 0 else "",
+                        "contextAfter": segments[i + 1]["text"] if i < len(segments) - 1 else "",
+                        "start": seg["start"],
+                        "sentiment": seg["sentiment"]
+                    })
+
+    matches.sort(key=lambda m: (m["date"], m["start"] if m["start"] is not None else 0))
+    return matches
 
 class SentimentRequest(BaseModel):
     text: str
@@ -197,3 +238,10 @@ if __name__ == "__main__":
 #*1) Changed "async def" to standard "def" so FastAPI uses background worker threads. 
     # I was having repeated errors where the network shows tasks like sentiment analysis and loading files as (Pending) constantly with no progress. 
     # In FastAPI, when you mark a function as async def, FastAPI expects you to use asynchronous non-blocking code inside it. However, inside get_broadcast_data(), I was running synchronous disk commands.
+   
+#*2) Keyed on modification time, so an edited/re-transcribed file is automatically
+    # picked up next time it's requested, while an unchanged file is served straight from memory.
+    # This is the fix for /api/broadcast-data being slow: without it, every
+    # single request re-reads and re-scores every subtitle file in the whole
+    # library from scratch, every time.
+    

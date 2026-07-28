@@ -35,6 +35,58 @@
 
     <!-- ======================================================= -->
     <div id="page-container">
+
+        <!-- Information Bar -->
+        <div class="card" style="width: 99%; height: 400px; margin:auto; margin-bottom: 10px; margin-top: 10px;">
+            <h2 class="subtitleHeader" style="text-align: center; margin: auto;">📌 About the Project - <em>Real-Time
+                    Broadcast Subtitle Capture & AI-Driven
+                    Analysis System</em></h2>
+
+
+            <div id="mini-info">
+                <h5 style="color:#666;">School of Electronics, Electrical Engineering and Computer Science (EEECS)
+                    <br>Summer Research Internship 2026 | <em>Queen's University Belfast</em>
+                    <br>Supervisors: Dr. David Laverty & Dr. Iman Okasili
+                    <br><a
+                        href="https://github.com/user-attachments/files/30342763/2026.EEECS.Summer.Research.Internships.-.David.Laverty.docx">
+                        2026 EEECS Summer Research Internships - David Laverty.docx</a>
+                </h5>
+            </div>
+
+            <br>
+            <hr><br>
+
+            <p class="readMe-text">This system is designed to ingest live
+                broadcast television subtitle streams, convert them into structured textual datasets, and leverage
+                modern <strong>Natural Language Processing (NLP)</strong> and <strong>Large Language Models
+                    (LLMs)</strong> to deliver near-real-time broadcast analytics.
+                <br>By continuously monitoring live programming, the system automates transcript extraction, speaker
+                diarization, content summarisation, and audience sentiment tracking. The project bridges real-time data
+                engineering, applied AI, and full-stack dashboard development.
+            </p>
+
+            <br>
+            <hr><br>
+
+            <h2 class="subtitleHeader" style="text-align: center; margin: auto;">✨ Key Features</h2>
+
+            <p class="readMe-text">
+                <strong>📡 Live Data Ingestion & Processing:</strong>
+                Captures and structures subtitle streams directly from broadcast sources.
+                <br><strong>🤖 Automated AI Summarization:</strong>
+                Employs local LLMs (Ollama / Phi-3) to condense long transcripts into concise, actionable summaries.
+                <br><strong>📈 Sentiment Analysis Engine:</strong>
+                Tracks emotional tone, positive/negative polarity, and trends across broadcasts using hybrid VADER and
+                LLM scoring pipelines (-1.0 to +1.0).
+                <br><strong>👥 Speaker Diarization:</strong>
+                Segments and color-codes transcripts by speaker identity for easy reading and visual analysis.
+                <br><strong>📊 Interactive Web Dashboard:</strong>
+                Built with FastAPI and Chart.js to filter episodes, view timelines, display subtitle files, and analyze
+                sentiment trends over time.
+            </p>
+
+        </div>
+
         <div class="dashboard-grid">
 
             <!-- CARD 1 -->
@@ -42,8 +94,7 @@
                 <h3>Option 1: Transcribe Media Folder</h3>
                 <p>Necessary files can be downloaded <strong><a
                             href="https://github.com/Literalily/Broadcast-Capture-Analysis">here</a></strong>.</p>
-                <p>Follow the <a
-                        href="https://github.com/Literalily/Broadcast-Capture-Analysis#to-use-option-1-transcribe-media-folder-you-must">
+                <p>Follow the <a href="https://github.com/Literalily/Broadcast-Capture-Analysis#required-installations">
                         instructions in the README file.</a></p>
 
                 <p><br>Use WhisperX to transcribe a video/audio file.</p>
@@ -97,7 +148,7 @@
                         }
                     } catch (err) {
                         feedback.style.color = "red";
-                        feedback.textContent = "Could not connect to the local Python execution server backend.";
+                        feedback.textContent = "Could not connect to the local Python execution server backend. Try restarting run.bat";
                     }
                 }
             </script>
@@ -105,10 +156,19 @@
             <!-- CARD 2 -->
             <div class="card">
                 <h3>Option 2: Open a subtitle file</h3>
-                <p>Supports JSON files processed through WhisperX. Please select both the JSON subtitle file and the
-                    original video/audio file.</p>
+                <p>Supports JSON files processed through WhisperX. <br>Select the <strong>folder</strong> containing
+                    your
+                    episode(s) - matching video/audio and subtitle files (same name, different extension) are found
+                    and paired automatically.</p>
                 <form method="post" enctype="multipart/form-data">
-                    <input type="file" id="file" name="file" accept=".json, video/*, audio/*" multiple />
+                    <input type="file" id="file" name="file" webkitdirectory directory multiple />
+                    <p id="fileLoadStatus" style="margin-top: 8px; font-weight: bold;"></p>
+
+                    <div id="episodePickerContainer" style="display: none; margin-top: 10px;">
+                        <label for="episodePicker"><strong>Multiple episodes found - choose one:</strong></label><br>
+                        <select id="episodePicker" style="width: 300px; padding: 6px; margin-top: 5px;"></select>
+                    </div>
+
                     <!-- Toggle start/end times -->
                     <br>
                     <label class="switch">

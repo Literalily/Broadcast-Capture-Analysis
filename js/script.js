@@ -1,8 +1,84 @@
-
 // Expose the function globally immediately so other pages can access it
 window.generateAIOverview = generateAIOverview;
 
-// Splits the subtitle text (segment array) into smaller, logical character chunks
+// ===== ===== ===== Live Subtitle Captions (WebVTT) ===== ===== =====
+// Converts WhisperX segments into a WebVTT caption track
+
+function formatVttTimestamp(seconds) {
+    if (seconds === undefined || seconds === null || isNaN(seconds)) return "00:00:00.000";
+    const totalMs = Math.round(seconds * 1000);
+    const hrs = Math.floor(totalMs / 3600000);
+    const mins = Math.floor((totalMs % 3600000) / 60000);
+    const secs = Math.floor((totalMs % 60000) / 1000);
+    const ms = totalMs % 1000;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+}
+
+// WebVTT cues can't contain a literal "-->" and shouldn't contain raw "<" so must be replaced
+function escapeVttText(text) {
+    return text.replace(/</g, "&lt;").replace(/-->/g, "-- >");
+}
+
+function buildVttTrackUrl(segments) {
+    if (!segments || segments.length === 0) return null;
+
+    let vtt = "WEBVTT\n\n";
+    let cueCount = 0;
+
+    segments.forEach((seg, i) => {
+        const text = (seg.text || "").trim();
+        if (!text) return;
+
+        const start = (seg.start !== undefined && seg.start !== null) ? seg.start : i;
+        const end = (seg.end !== undefined && seg.end !== null) ? seg.end : start + 3;
+        const speakerPrefix = seg.speaker ? `[${seg.speaker}] ` : '';
+
+        vtt += `${formatVttTimestamp(start)} --> ${formatVttTimestamp(end)}\n${speakerPrefix}${escapeVttText(text)}\n\n`;
+        cueCount++;
+    });
+
+    if (cueCount === 0) return null;
+    return URL.createObjectURL(new Blob([vtt], { type: "text/vtt" }));
+}
+
+// Attaches a caption track to a <video> element, replacing any existing one.
+// Pass the previously-returned blob URL (if any) so it gets revoked - avoids
+// leaking a blob URL every time a different episode is loaded.
+function attachSubtitleTrack(videoEl, segments, previousVttUrl) {
+    if (!videoEl) return previousVttUrl || null;
+
+    Array.from(videoEl.querySelectorAll('track')).forEach(t => t.remove());
+    if (previousVttUrl) {
+        URL.revokeObjectURL(previousVttUrl);
+    }
+
+    const vttUrl = buildVttTrackUrl(segments);
+    if (!vttUrl) return null;
+
+    const track = document.createElement('track');
+    track.kind = 'subtitles';
+    track.label = 'English';
+    track.srclang = 'en';
+    track.src = vttUrl;
+    track.default = true;
+    videoEl.appendChild(track);
+
+    // set mode explicitly once the track is ready
+    track.addEventListener('load', () => {
+        if (track.track) track.track.mode = 'showing';
+    });
+
+    return vttUrl;
+}
+
+window.buildVttTrackUrl = buildVttTrackUrl;
+window.attachSubtitleTrack = attachSubtitleTrack;
+
+// Tracks the caption blob URL currently attached to this page's own video
+// player, so it can be revoked when a new episode is loaded.
+let currentVttUrl = null;
+
+// Splits the subtitle segment array into smaller, logical character chunks
 function chunkText(segments, maxChunkChars = 3000) {
     const chunks = [];
     let currentChunk = "";
@@ -36,14 +112,14 @@ async function generateAIOverview(segments, uiContainer) {
             return;
         }
 
-        const maxChunks = 7;
+        const maxChunks = 10;
         const chunksToProcess = allChunks.slice(0, maxChunks);
         const summaries = [];
 
         uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Generating insights locally with Ollama...</p>`;
 
         for (let i = 0; i < chunksToProcess.length; i++) {
-            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Analysing chunk ${i + 1} of${chunksToProcess.length}...</p>`;
+            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 *DELETE: ALL CHUNKS=${allChunks.length} *   Analysing chunk ${i + 1} of${chunksToProcess.length}...</p>`;
 
             const response = await fetch('http://localhost:11434/api/generate', {
                 method: 'POST',
@@ -58,7 +134,7 @@ async function generateAIOverview(segments, uiContainer) {
                 })
             });
 
-            if (!response.ok) throw new Error("Could not connect to Ollama. Ensure the Ollama app is running.");
+            if (!response.ok) throw new Error("Could not connect to Ollama. Ensure Ollama has been correctly installed and is running.");
 
             const data = await response.json();
             summaries.push(data.response.trim());
@@ -110,6 +186,9 @@ const searchButton = document.getElementById("searchButton");
 // video player
 const viewerContainer = document.getElementById('viewer-container');
 const videoPlayer = document.getElementById('subtitleVideo');
+const episodePickerContainer = document.getElementById('episodePickerContainer');
+const episodePicker = document.getElementById('episodePicker');
+const fileLoadStatus = document.getElementById('fileLoadStatus');
 // remember loaded subtitle text
 let uploadedFiles = [];
 // for the speaker colours
@@ -331,6 +410,81 @@ function filterSubtitles() {
     });
 }
 
+// ===== ===== ===== EPISODE AUTO-PAIRING (for index.html Option 2) ===== ===== =====
+// Groups selected files by their shared basename (ignoring extension), 
+// so picking a folder containing "TheLateLateShow.mp4" + "TheLateLateShow.json" pairs
+// the video and subtitles automatically.
+const VIDEO_EXTENSIONS = ['mp4', 'mkv', 'mov', 'avi', 'ts', 'm4v', 'mp3', 'wav', 'm4a', 'flac'];
+let currentEpisodeGroups = new Map(); // baseName -> { baseName, jsonFile, mediaFile }
+
+function groupSelectedFiles(files) {
+    const groups = new Map();
+
+    for (const file of files) {
+        // webkitRelativePath (from a folder selection) looks like "MyFolder/Show.mp4";
+        // fall back to file.name for a plain (non-folder) selection.
+        const relPath = file.webkitRelativePath || file.name;
+        const fileName = relPath.split('/').pop();
+        const lastDot = fileName.lastIndexOf('.');
+        const baseName = lastDot > 0 ? fileName.substring(0, lastDot) : fileName;
+        const extension = fileName.split('.').pop().toLowerCase();
+
+        if (!groups.has(baseName)) {
+            groups.set(baseName, { baseName, jsonFile: null, mediaFile: null });
+        }
+        const group = groups.get(baseName);
+
+        if (extension === 'json') {
+            group.jsonFile = file;
+        } else if (VIDEO_EXTENSIONS.includes(extension)) {
+            group.mediaFile = file;
+        }
+    }
+
+    // Drop any "group" that matched neither a subtitle nor a media file
+    return new Map([...groups].filter(([, g]) => g.jsonFile || g.mediaFile));
+}
+
+async function loadEpisodeGroup(group) {
+    uploadedFiles = [];
+    let segments = null;
+
+    if (group.jsonFile) {
+        try {
+            const text = await group.jsonFile.text();
+            const data = JSON.parse(text);
+            segments = Array.isArray(data) ? data : (data.segments || []);
+            uploadedFiles.push({ name: group.jsonFile.name, segments });
+        } catch (err) {
+            console.error(`Error reading file ${group.jsonFile.name}:`, err);
+            uploadedFiles.push({ name: group.jsonFile.name, error: err.message });
+        }
+    }
+
+    if (group.mediaFile && videoPlayer) {
+        const objectURL = URL.createObjectURL(group.mediaFile);
+        videoPlayer.src = objectURL;
+        videoPlayer.load();
+    }
+
+    // Attach live captions now that we should (potentially) (hopefully) have both halves of the pair
+    if (group.mediaFile && segments && segments.length > 0) {
+        currentVttUrl = attachSubtitleTrack(videoPlayer, segments, currentVttUrl);
+    }
+
+    if (fileLoadStatus) {
+        if (group.jsonFile && group.mediaFile) {
+            fileLoadStatus.innerHTML = `<span style="color: green;">✅ Loaded "${group.baseName}" with subtitles and video.</span>`;
+        } else {
+            const found = group.jsonFile ? "subtitles" : "video/audio";
+            const missing = group.jsonFile ? "video/audio" : "subtitles";
+            fileLoadStatus.innerHTML = `<span style="color: orange;">⚠️ Only found ${found} for "${group.baseName}" - no matching ${missing} file was in the selected folder.</span>`;
+        }
+    }
+
+    renderSubtitles();
+}
+
 // ===== ===== ===== PROTECTED EVENT LISTENERs ===== ===== =====
 // only reads files and saves text to state (Subtitles) or loads media (Video/Audio)
 if (fileInput) {
@@ -338,46 +492,47 @@ if (fileInput) {
         const files = event.target.files;
         uploadedFiles = []; // Clear the old cached subtitle state array
 
+        if (episodePickerContainer) episodePickerContainer.style.display = 'none';
+        if (fileLoadStatus) fileLoadStatus.textContent = '';
+
         if (!files || files.length === 0) {
             renderSubtitles();
             return;
         }
 
-        for (const file of files) {
-            const extension = file.name.split('.').pop().toLowerCase();
-            const isMedia = file.type.startsWith('video/') ||
-                file.type.startsWith('audio/') ||
-                ['mp4', 'mkv', 'mov', 'avi', 'ts', 'mp3', 'wav', 'm4a', 'flac'].includes(extension);
+        currentEpisodeGroups = groupSelectedFiles(files);
 
-            if (extension === 'json') {
-                // Handle Subtitle JSON parsing
-                try {
-                    const text = await file.text();
-                    const data = JSON.parse(text);
-                    console.log(`Cached state data for (${file.name})`);
-
-                    uploadedFiles.push({ name: file.name, segments: data.segments });
-                } catch (err) {
-                    console.error(`Error reading file ${file.name}:`, err);
-                    uploadedFiles.push({ name: file.name, error: err.message });
-                }
-            }
-            else if (isMedia) {
-                // Handle Video/Audio stream load
-                try {
-                    const objectURL = URL.createObjectURL(file);
-                    if (videoPlayer) {
-                        videoPlayer.src = objectURL;
-                        videoPlayer.load(); // Forces the player to load the new source
-                        console.log(`Loaded local media file into player: (${file.name})`);
-                    }
-                } catch (err) {
-                    console.error(`Error loading media file ${file.name}:`, err);
-                }
-            }
+        if (currentEpisodeGroups.size === 0) {
+            if (fileLoadStatus) fileLoadStatus.textContent = "No recognizable subtitle or media files found in that selection.";
+            renderSubtitles();
+            return;
         }
 
-        renderSubtitles();
+        if (currentEpisodeGroups.size === 1) {
+            const [[, onlyGroup]] = currentEpisodeGroups;
+            await loadEpisodeGroup(onlyGroup);
+        } else {
+            // More than one episode in the selected folder - let the user pick which one
+            if (episodePickerContainer) episodePickerContainer.style.display = 'block';
+            if (episodePicker) {
+                episodePicker.innerHTML = '';
+                for (const baseName of currentEpisodeGroups.keys()) {
+                    const option = document.createElement('option');
+                    option.value = baseName;
+                    option.textContent = baseName;
+                    episodePicker.appendChild(option);
+                }
+            }
+            const firstGroup = currentEpisodeGroups.values().next().value;
+            await loadEpisodeGroup(firstGroup);
+        }
+    });
+}
+
+if (episodePicker) {
+    episodePicker.addEventListener('change', async () => {
+        const group = currentEpisodeGroups.get(episodePicker.value);
+        if (group) await loadEpisodeGroup(group);
     });
 }
 

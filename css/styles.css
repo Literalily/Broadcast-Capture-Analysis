@@ -397,6 +397,36 @@ small {
     transition: 0.2s;
 }
 
+/* ── mini-info box ───────────────────────────────────────── */
+
+#mini-info {
+    background-color: #ffffff;
+    margin: auto;
+    width: 600px;
+    height: auto;
+    padding: 20px;
+    border-radius: 5px;
+    border-left: 5px solid rgb(102, 102, 102);
+    box-shadow: 0 2px 8px rgba(102, 102, 102, 0.1);
+    margin-bottom: 5px;
+    margin-top: 5px;
+}
+
+.readMe-text {
+    color: #333;
+    /* font-size: 1.4rem; */
+    /* font-weight: bold; */
+    /* display: flex; */
+    /* align-items: center; */
+    gap: 8px;
+
+    width: 75%;
+    margin: auto;
+    font-size: 17px;
+    margin-bottom: 10px;
+    margin-top: 10px;
+}
+
 /* ── Toggle Switch ───────────────────────────────────────── */
 
 .switch {
@@ -572,7 +602,7 @@ input:checked+.slider:before {
 
 .viewer-charts {
     flex: auto;
-    height: 1000px;
+    height: 400px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -781,20 +811,20 @@ input:checked+.slider:before {
     opacity: 1;
 }
 
-/* Charts */
+/* Chart */
 #myChart {
-    /* width:50%;
-    height: 50%; */
-    max-width: 1000px;
-    max-height: 1000px;
-    justify-content: center;
-    align-items: center;
+    max-height: 400px;
+    width: 100%;
+    margin: 0 auto;
+    display: block;
+    /* justify-content: center;
+    align-items: center; */
 }
 
 /* Bar Chart */
 #barChart {
-    max-width: 1000px;
-    max-height: 1000px;
+    max-height: 400px;
+    width: 100%;
     margin: 0 auto;
     display: block;
 }

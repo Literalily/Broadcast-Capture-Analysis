@@ -74,6 +74,7 @@
         <!-- Directory Upload Bar -->
         <div class="card" style="height: auto; margin-bottom: 20px;">
             <h3 class="subtitleHeader">📂 Broadcast Directory</h3>
+            <p><strong>NOTE: </strong>This may take up to 3 minutes to load. If it has not loaded within that time, use the Manual Override button to upload folders.</p>
             <p id="autoLoadStatus" style="margin-bottom: 15px; color: #666;">
                 🔎 Searching for a <strong>Broadcast-Data</strong> folder next to the server...
             </p>
@@ -133,6 +134,23 @@
             </div>
         </div>
 
+        <!-- Keyword Context -->
+        <div class="card viewer-charts">
+            <h3 class="subtitleHeader">🔎 Keyword Context</h3>
+            <p style="color:#666; font-size: 13px; margin-bottom: 15px;">
+                Search for a term across every transcript to see each mention, the surrounding context, and each line's
+                sentiment score.
+            </p>
+            <div style="display: flex; gap: 10px; margin-bottom: 15x;">
+                <input type="text" id="termExplorerInput" class="search-input" style="flex: 1; border-radius: 6px;"
+                    placeholder="e.g. Covid, Brexit, Climate...">
+                <button id="termExplorerBtn" class="search-button"
+                    style="border-radius: 6px; white-space: nowrap;">Analyse Term</button>
+            </div>
+            <p id="termExplorerSummary" style="color: #666; font-size: 13px; margin-bottom: 10px;"></p>
+            <div id="termMentionsList" style="max-height: 500px; overflow-y: auto;"></div>
+        </div>
+
         <!-- CHarts Card -->
         <div class="card viewer-charts">
             <h3 class="subtitleHeader">📈 Program Sentiment Trends Over Time</h3>
@@ -140,14 +158,16 @@
                 Tracking average program sentiment score (-1 = Very Negative, +1 = Very Positive) grouped by broadcast
                 folder.
             </p>
-            <canvas id="myChart" style="max-height: 400px; width: 100%;"></canvas>
+            <canvas id="myChart"></canvas>
+        </div>
 
-            <!-- Bar Chart Card -->
+        <!-- Bar Chart Card -->
+        <div class="card viewer-charts">
             <h3 class="subtitleHeader">📊 Average Sentiment by Folder</h3>
             <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
                 Comparing mean sentiment by source.
             </p>
-            <canvas id="barChart" style="max-height: 400px; width: 100%;"></canvas>
+            <canvas id="barChart"></canvas>
         </div>
 
     </div>
@@ -327,9 +347,11 @@
 
         // Tracks a blob URL created for a locally-picked video File, so it can be revoked when the popup closes or a different video is opened.
         let currentVideoObjectUrl = null;
+        // Tracks the captions (WebVTT) blob url currently attached to the popup player to support subtitles 
+        let currentPopupVttUrl = null;
 
-        // Opens the broadcast video in a popup
-        function viewBroadcastVideo(globalIndex) {
+        // Opens the broadcast video in a popup (with live subtitles)
+        async function viewBroadcastVideo(globalIndex) {
             const item = allBroadcastData[globalIndex];
             if (!hasVideoSource(item)) return;
 
@@ -351,6 +373,16 @@
                 player.src = currentVideoObjectUrl;
             }
 
+            // Attach live subtitles to video (if subtitles are avaliable and script.js caption helper is working)
+            if (hasSubtitleSource(item) && window.attachSubtitleTrack) {
+                try {
+                    const segments = await getSubtitleSegments(item);
+                    currentPopupVttUrl = window.attachSubtitleTrack(player, segments, currentPopupVttUrl);
+                } catch (err) {
+                    console.error("Could not attach captions: ", err);
+                }
+            }
+
             const overlay = document.getElementById('videoPopupOverlay');
             overlay.classList.add('show');
             player.play().catch(() => { }); // autoplay can be blocked by the browser; ignore if so
@@ -369,6 +401,11 @@
             if (currentVideoObjectUrl) {
                 URL.revokeObjectURL(currentVideoObjectUrl);
                 currentVideoObjectUrl = null;
+            }
+
+            if (currentPopupVttUrl) {
+                URL.revokeObjectURL(currentPopupVttUrl);
+                currentPopupVttUrl = null;
             }
 
             overlay.classList.remove('show');
@@ -393,6 +430,10 @@
             const clearBtn = document.getElementById("clearFiltersBtn");
             const autoLoadStatus = document.getElementById("autoLoadStatus");
             const refreshServerDataBtn = document.getElementById("refreshServerDataBtn");
+            const termExplorerInput = document.getElementById("termExplorerInput");
+            const termExplorerBtn = document.getElementById("termExplorerBtn");
+            const termExplorerSummary = document.getElementById("termExplorerSummary");
+            const termMentionsList = document.getElementById("termMentionsList");
 
             // === 1. Handle Folder Selection
             directoryPicker.addEventListener("change", async (event) => {
@@ -550,6 +591,17 @@
                 renderResults(allBroadcastData);
                 renderCharts(allBroadcastData);
                 renderBarChart(allBroadcastData);
+
+                // safety net in case the server should fail to run sentiment analysis, so it isn't stuck on "Analysing..." forever
+                await Promise.all(allBroadcastData.map(async (item) => {
+                    if (hasSubtitleSource(item) && item.sentiment === null) {
+                        item.sentiment = await getBroadcastSentiment(item);
+                        item.sentimentAttempted = true;
+                    }
+                }))
+                renderResults(allBroadcastData);
+                renderCharts(allBroadcastData);
+                renderBarChart(allBroadcastData);
             }
 
             // Render New Average Sentiment Bar Chart with Mean Benchmark Bar
@@ -588,7 +640,7 @@
 
                 // Style bars matching theme palette + distinct accent red for Mean Sentiment
                 const barColors = chartLabels.map((label, idx) => {
-                    if (label === "Mean Sentiment") return "#d7010d"; // Signature theme red
+                    if (label === "Mean Sentiment") return "#A1AEB1"; // grey for mean sentiment
                     return chartPalette[idx % chartPalette.length];
                 });
 
@@ -752,11 +804,29 @@
 
             // Reads every subtitle file (server hosted or picked locally) and returns the set of "folde/series" keys whose transcript contains the given keyword
             async function findSubtitleKeywordMatches(keyword) {
-                const lowerKeyword = keyword.toLowerCase();
                 const matches = new Set();
 
-                await Promise.all(allBroadcastData.map(async (item) => {
-                    if (!hasSubtitleSource(item)) return;
+                // Anything sitting in the server's Broadcast-Data folder
+                // gets searched server-side, where it's cached (see server.py) -
+                // this is what makes repeat searches fast even with a large library.
+                try {
+                    const response = await fetch(`/api/search-subtitles?q=${encodeURIComponent(keyword)}`);
+                    if (response.ok) {
+                        const results = await response.json();
+                        results.forEach(r => matches.add(`${r.folder}/${r.series}`));
+                    } else {
+                        console.error("Server-side subtitle search failed:", response.status);
+                    }
+                } catch (err) {
+                    console.error("Server-side subtitle search error:", err);
+                }
+
+                // Fallback so items picked manually via the browser folder picker
+                // aren't on the server's disk, so the server can't search them -
+                // check those in the browser instead.
+                const lowerKeyword = keyword.toLowerCase();
+                const localOnlyItems = allBroadcastData.filter(item => item.subtitleFile && !item.subtitlePath);
+                await Promise.all(localOnlyItems.map(async (item) => {
                     try {
                         const segments = await getSubtitleSegments(item);
                         const fullText = segments.map(s => s.text || "").join(" ").toLowerCase();
@@ -922,6 +992,95 @@
                     }
                 });
             }
+
+            // ===== Keyword Context Explorer
+            // Keeps the most recent search results around (not just rendered to the
+            // DOM) so a future "sentiment over time for this term" chart can reuse
+            // them directly instead of re-searching.
+            let lastTermExplorerResults = [];
+
+            function escapeHtml(str) {
+                const div = document.createElement("div");
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            async function runTermExplorer() {
+                const term = termExplorerInput.value.trim();
+                if (!term) {
+                    termExplorerSummary.textContent = "Type a term to search for.";
+                    return;
+                }
+
+                const originalLabel = termExplorerBtn.textContent;
+                termExplorerBtn.disabled = true;
+                termExplorerBtn.textContent = "🔎 Searching...";
+                termExplorerSummary.textContent = `Searching transcripts for "${term}"...`;
+                termMentionsList.innerHTML = "";
+
+                try {
+                    const response = await fetch(`/api/search-subtitles?q=${encodeURIComponent(term)}`);
+                    if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+                    lastTermExplorerResults = await response.json();
+                } catch (err) {
+                    console.error("Term explorer search failed:", err);
+                    termExplorerSummary.innerHTML = `⚠️ Couldn't search the server's broadcasts (${err.message}). ` +
+                        `Note: manually-picked local files aren't covered by this search, only ones in the server's Broadcast-Data folder.`;
+                    termExplorerBtn.disabled = false;
+                    termExplorerBtn.textContent = originalLabel;
+                    return;
+                }
+
+                termExplorerBtn.disabled = false;
+                termExplorerBtn.textContent = originalLabel;
+
+                if (lastTermExplorerResults.length === 0) {
+                    termExplorerSummary.textContent = `No mentions of "${term}" found.`;
+                    return;
+                }
+
+                const uniqueBroadcasts = new Set(lastTermExplorerResults.map(r => `${r.folder}/${r.series}`));
+                termExplorerSummary.innerHTML = `Found <strong>${lastTermExplorerResults.length}</strong> mention(s) of ` +
+                    `"<strong>${escapeHtml(term)}</strong>" across <strong>${uniqueBroadcasts.size}</strong> broadcast(s).`;
+
+                termMentionsList.innerHTML = "";
+                lastTermExplorerResults.forEach(r => {
+                    const globalIndex = allBroadcastData.findIndex(item => item.folder === r.folder && item.series === r.series);
+
+                    let color = 'orange';
+                    if (typeof r.sentiment === 'number') {
+                        if (r.sentiment >= 0.2) color = 'green';
+                        if (r.sentiment <= -0.2) color = 'red';
+                    }
+                    const sentimentLabel = (typeof r.sentiment === 'number')
+                        ? `<span style="color: ${color}; font-weight: bold;">${r.sentiment > 0 ? '+' : ''}${r.sentiment}</span>`
+                        : `<span style="color: #999; font-style: italic;">N/A</span>`;
+
+                    const row = document.createElement("div");
+                    row.style.cssText = "padding: 10px; border-bottom: 1px solid #eee; cursor: pointer;";
+                    row.innerHTML = `
+                        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <strong>${escapeHtml(r.series)}</strong>
+                            <span style="font-size: 13px;">📅 ${r.date} &nbsp; Sentiment: ${sentimentLabel}</span>
+                        </div>
+                        <div style="font-size: 13px; color: #555;">
+                            ${r.contextBefore ? `<span style="color:#aaa;">"...${escapeHtml(r.contextBefore)}"</span> ` : ''}
+                            <span style="background: #fff3cd; padding: 1px 3px; border-radius: 3px;">"${escapeHtml(r.text)}"</span>
+                            ${r.contextAfter ? ` <span style="color:#aaa;">"${escapeHtml(r.contextAfter)}..."</span>` : ''}
+                        </div>
+                    `;
+                    if (globalIndex !== -1) {
+                        row.title = "Click to view this episode's full subtitles";
+                        row.addEventListener("click", () => loadAndShowSubtitles(globalIndex));
+                    }
+                    termMentionsList.appendChild(row);
+                });
+            }
+
+            termExplorerBtn.addEventListener("click", runTermExplorer);
+            termExplorerInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") runTermExplorer();
+            });
 
             // manual refresh button and auto-load on page ready
             refreshServerDataBtn.addEventListener("click", () => {
