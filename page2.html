@@ -74,7 +74,8 @@
         <!-- Directory Upload Bar -->
         <div class="card" style="height: auto; margin-bottom: 20px;">
             <h3 class="subtitleHeader">📂 Broadcast Directory</h3>
-            <p><strong>NOTE: </strong>This may take up to 3 minutes to load. If it has not loaded within that time, use the Manual Override button to upload folders.</p>
+            <p><strong>NOTE: </strong>This may take up to 3 minutes to load. If it has not loaded within that time,
+                please use the Manual Override button to upload folders.</p>
             <p id="autoLoadStatus" style="margin-bottom: 15px; color: #666;">
                 🔎 Searching for a <strong>Broadcast-Data</strong> folder next to the server...
             </p>
@@ -151,23 +152,43 @@
             <div id="termMentionsList" style="max-height: 500px; overflow-y: auto;"></div>
         </div>
 
-        <!-- CHarts Card -->
-        <div class="card viewer-charts">
-            <h3 class="subtitleHeader">📈 Program Sentiment Trends Over Time</h3>
+        <!-- Graph for Keyword Context -->
+        <div class="card viewer-charts" id="keywordChartCard" style="display: none;">
+            <!-- keywordChartCard is used to keep the chart hidden until the user searches for a term -->
+            <h3 class="subtitleHeader">📈 Keyword Sentiment Over Time</h3>
             <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
-                Tracking average program sentiment score (-1 = Very Negative, +1 = Very Positive) grouped by broadcast
-                folder.
+                Tracking the sentiment of the searched term across different broadcasts.
             </p>
-            <canvas id="myChart"></canvas>
+            <div class="chart-canvas-wrapper">
+                <canvas id="keywordChart"></canvas>
+            </div>
         </div>
 
-        <!-- Bar Chart Card -->
-        <div class="card viewer-charts">
-            <h3 class="subtitleHeader">📊 Average Sentiment by Folder</h3>
-            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
-                Comparing mean sentiment by source.
-            </p>
-            <canvas id="barChart"></canvas>
+        <div id="flex-container">
+
+            <!-- CHarts Card -->
+            <div class="card viewer-charts">
+                <h3 class="subtitleHeader">📈 Program Sentiment Trends Over Time</h3>
+                <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                    Tracking average program sentiment score (-1 = Very Negative, +1 = Very Positive) grouped by
+                    broadcast folder.
+                </p>
+                <div class="chart-canvas-wrapper">
+                    <canvas id="myChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Bar Chart Card -->
+            <div class="card viewer-charts">
+                <h3 class="subtitleHeader">📊 Average Sentiment by Folder</h3>
+                <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                    Comparing mean sentiment by source.
+                </p>
+                <div class="chart-canvas-wrapper">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+
         </div>
 
     </div>
@@ -180,6 +201,7 @@
     <script>
         let allBroadcastData = [];
         let myChartInstance = null;
+        let keywordChartInstance = null;
 
         const colorPool = [
             'color-red', 'color-orange', 'color-green', 'color-blue',
@@ -208,21 +230,6 @@
             return !!(item && (item.videoFile || item.videoPath));
         }
 
-        // async function getSubtitleSegments(item) {
-        //     if (!item) return [];
-        //     let jsonData;
-        //     if (item.subtitleFile) {
-        //         const textContent = await item.subtitleFile.text();
-        //         jsonData = JSON.parse(textContent);
-        //     } else if (item.subtitlePath) {
-        //         const response = await fetch(item.subtitlePath);
-        //         if (!response.ok) throw new Error(`Failed to fetch subtitle file (${response.status})`);
-        //         jsonData = await response.json();
-        //     } else {
-        //         return [];
-        //     }
-        //     return Array.isArray(jsonData) ? jsonData : (jsonData.segments || []);
-        // }
         async function getSubtitleSegments(item) {
 
             if (!item)
@@ -373,6 +380,20 @@
                 player.src = currentVideoObjectUrl;
             }
 
+            // setting the video poster dynamically based on folder name
+            const folderLower = (item.folder || "").toLowerCase();
+            if (folderLower.includes("liveline")) {
+                player.poster = "assets/LivelineLogo.jpg";
+            } else if (folderLower.includes("nationwide")) {
+                player.poster = "assets/NationwideLogo.png";
+            } else if (folderLower.includes("newsatone")) {
+                player.poster = "assets/NewsAtOneLogo.jpg";
+            } else if (folderLower.includes("the late late show")) {
+                player.poster = "assets/TheLateLateShowLogo.jpg";
+            } else {
+                player.removeAttribute("poster");
+            }
+
             // Attach live subtitles to video (if subtitles are avaliable and script.js caption helper is working)
             if (hasSubtitleSource(item) && window.attachSubtitleTrack) {
                 try {
@@ -396,6 +417,7 @@
 
             player.pause();
             player.removeAttribute('src');
+            player.removeAttribute('poster');
             player.load();
 
             if (currentVideoObjectUrl) {
@@ -551,15 +573,10 @@
             async function loadBroadcastsFromServer() {
                 autoLoadStatus.textContent = "🔎 Searching for a Broadcast-Data folder next to the server...";
                 let serverItems;
-                console.log("Clicked button");
                 try {
-                    console.log("trying");
                     const response = await fetch('/api/broadcast-data');
-                    console.log("await fetch");
                     if (!response.ok) throw new Error(`Server responded with ${response.status}`);
-                    console.log("server response: ", response.status);
                     serverItems = await response.json();
-                    console.log("serverItems", serverItems);
                 } catch (err) {
                     console.error("Failed to auto-load broadcast data:", err);
                     autoLoadStatus.innerHTML = `⚠️ Couldn't reach the server's Broadcast-Data folder ` +
@@ -571,7 +588,6 @@
                     autoLoadStatus.textContent = "📭 No broadcasts found in a Broadcast-Data folder next to the server. Add one, or use the manual override below.";
                     return;
                 }
-                console.log("end of segment");
 
                 allBroadcastData = serverItems.map(item => ({
                     folder: item.folder,
@@ -993,6 +1009,107 @@
                 });
             }
 
+            // ===== Render Keyword Sentiment Chart =====
+            function renderKeywordChart(results, term) {
+                const canvas = document.getElementById("keywordChart");
+                const card = document.getElementById("keywordChartCard");
+                if (!canvas || !card) return;
+
+                // filter out results that don't have a valid sentiment score or date
+                const validResults = results.filter(r => typeof r.sentiment === 'number' && r.date && r.date !== "00-00-0000");
+
+                if (validResults.length === 0) {
+                    card.style.display = "none"; //card is hidden if no valid data
+                    if (keywordChartInstance) keywordChartInstance.destroy();
+                    return;
+                }
+
+                card.style.display = "flex"; //show card
+
+                const ctx = canvas.getContext("2d");
+
+                // sort chronologically and get unique dates for the x-axis
+                validResults.sort((a, b) => a.date.localeCompare(b.date));
+                const xLabels = [...new Set(validResults.map(r => r.date))];
+
+                // extract unique folders for coloured lines
+                const uniqueFolders = [...new Set(validResults.map(r => r.folder))];
+
+                const datasets = uniqueFolders.map((folderName, index) => {
+                    const folderItems = validResults.filter(r => r.folder === folderName);
+
+                    //average sentiment if the word is mentioned multiple times in one episode
+                    const dateSentimentMap = {};
+                    folderItems.forEach(item => {
+                        if (!dateSentimentMap[item.date]) {
+                            dateSentimentMap[item.date] = { sum: 0, count: 0 };
+                        }
+                        dateSentimentMap[item.date].sum += item.sentiment;
+                        dateSentimentMap[item.date].count += 1;
+                    });
+
+                    // map averages to the x-axis labels
+                    const dataPoints = xLabels.map(date => {
+                        return dateSentimentMap[date] ? (dateSentimentMap[date].sum / dateSentimentMap[date].count) : null;
+                    });
+
+                    // match line colours with those in the main Average Sentiment chart
+                    const allUniqueFolders = [...new Set(allBroadcastData.map(item => item.folder))];
+                    let colorIndex = allUniqueFolders.indexOf(folderName);
+                    if (colorIndex === -1) colorIndex = index; //fallback
+                    const lineColor = chartPalette[colorIndex % chartPalette.length];
+
+                    return {
+                        label: folderName,
+                        data: dataPoints,
+                        borderColor: lineColor,
+                        backgroundColor: lineColor,
+                        fill: false,
+                        lineTension: 0.4,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        spanGaps: true //connects line segements across missing dates
+                    };
+                });
+
+                if (keywordChartInstance) {
+                    keywordChartInstance.destroy(); //clear old searches
+                }
+
+                keywordChartInstance = new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        labels: xLabels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        legend: { display: true, position: "top" },
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    min: -1.0,
+                                    max: 1.0,
+                                    stepSize: 0.5,
+                                    callback: function (val) {
+                                        if (val === 1) return '+1.0 (Pos)';
+                                        if (val === 0) return '0.0 (Neu)';
+                                        if (val === -1) return '-1.0 (Neg)';
+                                        return val.toFixed(1);
+                                    }
+                                },
+                                scaleLabel: { display: true, labelString: `Sentiment for "${term}"` }
+                            }],
+                            xAxes: [{
+                                scaleLabel: { display: true, labelString: "Broadcast Date" }
+                            }]
+                        }
+                    }
+                });
+            };
+
+
             // ===== Keyword Context Explorer
             // Keeps the most recent search results around (not just rendered to the
             // DOM) so a future "sentiment over time for this term" chart can reuse
@@ -1075,6 +1192,7 @@
                     }
                     termMentionsList.appendChild(row);
                 });
+                renderKeywordChart(lastTermExplorerResults, term); //render chart using search results
             }
 
             termExplorerBtn.addEventListener("click", runTermExplorer);
