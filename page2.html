@@ -433,6 +433,16 @@
             overlay.classList.remove('show');
         }
 
+        //helper to guarantee consitent folder colours across charts
+        function getFolderColor(folderName) {
+            const allUniqueFolders = [...new Set(allBroadcastData.map(item => item.folder))];
+
+            let colourIndex = allUniqueFolders.indexOf(folderName);
+            if (colourIndex === -1) colourIndex = 0; //flallback
+
+            return chartPalette[colourIndex % chartPalette.length];
+        }
+
         // Helper to format seconds into HH:MM:SS or MM:SS
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
@@ -513,26 +523,6 @@
                         group.subtitleFile = file;
                     }
                 }
-
-                // // Filter out groups that don't have at least a video file
-                // allBroadcastData = Array.from(fileMap.values()).filter(item => item.videoFile);
-
-                // populateFolderDropdown(allBroadcastData);
-                // renderResults(allBroadcastData);
-                // renderCharts(allBroadcastData);
-                // renderBarChart(allBroadcastData);
-
-                // sentiment analysis - VADER
-                // for (const item of allBroadcastData) {
-                //     if (hasSubtitleSource(item)) {
-                //         item.sentiment = await getBroadcastSentiment(item);
-                //         item.sentimentAttempted = true;
-                //         // Re-render dashboard and charts as each item finishes
-                //         renderResults(allBroadcastData);
-                //         renderCharts(allBroadcastData);
-                //         renderBarChart(allBroadcastData);
-                //     }
-                // }
 
                 // ===== TESTER MIGHT BREAK EVERYTHING EEK ===== 
                 // Analyse all broadcasts first
@@ -654,11 +644,15 @@
                 const chartLabels = [...folderNames, "Mean Sentiment"];
                 const chartData = [...folderAverages, overallMean];
 
-                // Style bars matching theme palette + distinct accent red for Mean Sentiment
-                const barColors = chartLabels.map((label, idx) => {
-                    if (label === "Mean Sentiment") return "#A1AEB1"; // grey for mean sentiment
-                    return chartPalette[idx % chartPalette.length];
-                });
+                // use master list of folders (allUniqueFOlders) to ensure colors sync across all charts
+                const allUniqueFolders = [...new Set(allBroadcastData.map(item => item.folder))];
+
+                // Style bars matching theme palette + grey for Mean Sentiment
+                const barColors = chartLabels.map((label) => {
+                    if (label === "Mean Sentiment") return "#A1AEB1";
+                    return getFolderColor(label);
+                })
+
 
                 if (myBarChartInstance) {
                     myBarChartInstance.destroy();
@@ -685,7 +679,7 @@
                                 ticks: {
                                     min: -1.0,
                                     max: 1.0,
-                                    stepSize: 0.2,
+                                    stepSize: 0.5,
                                     callback: function (val) {
                                         if (val === 1) return '+1.0 (Positive)';
                                         if (val === 0) return '0.0 (Neutral)';
@@ -946,7 +940,7 @@
                         dateSentimentMap[date] !== undefined ? dateSentimentMap[date] : null
                     );
 
-                    const lineColor = chartPalette[index % chartPalette.length];
+                    const lineColor = getFolderColor(folderName);
 
                     return {
                         label: folderName,
@@ -1053,11 +1047,8 @@
                         return dateSentimentMap[date] ? (dateSentimentMap[date].sum / dateSentimentMap[date].count) : null;
                     });
 
-                    // match line colours with those in the main Average Sentiment chart
-                    const allUniqueFolders = [...new Set(allBroadcastData.map(item => item.folder))];
-                    let colorIndex = allUniqueFolders.indexOf(folderName);
-                    if (colorIndex === -1) colorIndex = index; //fallback
-                    const lineColor = chartPalette[colorIndex % chartPalette.length];
+                    // match line colours with those in the other charts
+                    const lineColor = getFolderColor(folderName);
 
                     return {
                         label: folderName,

@@ -112,14 +112,14 @@ async function generateAIOverview(segments, uiContainer) {
             return;
         }
 
-        const maxChunks = 10;
+        const maxChunks = allChunks.length; //NOTE TODO: This will analyse the whole transcript. If it's taking too long, reduce this to 10 or so.
         const chunksToProcess = allChunks.slice(0, maxChunks);
         const summaries = [];
 
         uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Generating insights locally with Ollama...</p>`;
 
         for (let i = 0; i < chunksToProcess.length; i++) {
-            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 *DELETE: ALL CHUNKS=${allChunks.length} *   Analysing chunk ${i + 1} of${chunksToProcess.length}...</p>`;
+            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 *All Chunks=${allChunks.length} *   Analysing chunk ${i + 1} of${chunksToProcess.length}...</p>`;
 
             const response = await fetch('http://localhost:11434/api/generate', {
                 method: 'POST',
