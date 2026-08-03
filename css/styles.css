@@ -24,7 +24,7 @@ body {
     padding-bottom: 20px;
 }
 
-/* ── HEADER UPDATED ────────────────────────────────────────── */
+/* ── Header ────────────────────────────────────────── */
 .header {
     position: fixed;
     top: 0;
@@ -38,7 +38,6 @@ body {
     justify-content: space-between;
 
     background: #d7010d;
-    /* background: #c41212; */
     color: #f5f5f5;
     padding: 0 25px;
 
@@ -234,7 +233,7 @@ label {
     margin: 0.4rem 0;
 }
 
-/* ── LAYOUT ───────────────────────────────────────── */
+/* ── Layout ───────────────────────────────────────── */
 .layout {
     display: flex;
     min-height: 100vh;
@@ -397,7 +396,7 @@ small {
     transition: 0.2s;
 }
 
-/* ── mini-info box ───────────────────────────────────────── */
+/* ── Mini-info box ───────────────────────────────────────── */
 
 #mini-info {
     background-color: #ffffff;
@@ -414,10 +413,6 @@ small {
 
 .readMe-text {
     color: #333;
-    /* font-size: 1.4rem; */
-    /* font-weight: bold; */
-    /* display: flex; */
-    /* align-items: center; */
     gap: 8px;
 
     width: 75%;
@@ -556,6 +551,7 @@ input:checked+.slider:before {
 }
 
 /* ── Subtitle Analysis ───────────────────────────────────────── */
+
 .subtitle-line {
     margin: 8px 0;
     cursor: pointer;
@@ -690,7 +686,6 @@ input:checked+.slider:before {
     transform: scale(0.98);
 }
 
-/* ===================== */
 .btn-open-popup {
     padding: 12px 24px;
     font-size: 18px;
@@ -829,7 +824,8 @@ input:checked+.slider:before {
     padding: 10px;
 }
 
-/* ====== Stacking Charts Neatly ======= */
+/* ── Stacking charts on page2 neatly ────────────────────────────────────────── */
+
 #flex-container {
     display: flex;
     gap: 20px;
@@ -844,18 +840,52 @@ input:checked+.slider:before {
 }
 
 #flex-container .viewer-charts {
-    flex: 1; /* Forces both chart cards to take equal 50% width side-by-side */
-    min-width: 0; /* Prevents canvas intrinsic sizes from breaking the layout */
+    flex: 1;
+    /* Forces both chart cards to take equal 50% width side-by-side */
+    min-width: 0;
+    /* Prevents canvas intrinsic sizes from breaking the layout */
     height: 550px;
 }
 
 /* Responsive layout - switches to a stacked column only when the screen shrinks below 900px */
 @media (max-width: 900px) {
     #flex-container {
-        flex-direction: column; /* Stacks charts vertically on smaller screens */
+        flex-direction: column;
+        /* Stacks charts vertically on smaller screens */
     }
 
     #flex-container .viewer-charts {
-        width: 100%; /* Expands to full width when stacked */
+        width: 100%;
+        /* Expands to full width when stacked */
     }
+}
+
+
+/* ── page3 broadcast boxes ────────────────────────────────────────── */
+
+.broadcasts-container {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    width: 100%;
+    padding: 10px;
+    border: 2px solid black;
+}
+
+.broadcast-box {
+    flex: 1;
+    padding: 20px;
+    border: 2px solid #ccc;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+    display: flex;
+    flex-direction: column;
+    min-height: 350px;
+}
+
+.broadcast-box:hover {
+    transform: translateY(-3px);
+    transition: 0.2s;
 }

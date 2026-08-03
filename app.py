@@ -4,11 +4,10 @@ import subprocess
 import venv  # Built-in Python standard library for managing virtual environments
 
 def get_project_paths():
-    """
-    Dynamically resolves paths relative to where this script is saved.
-    This removes all concrete, hardcoded system pathways.
-    """
-    # Locates the exact directory containing this app.py file
+    # Dynamically resolves paths relative to where this script is saved.
+    # This removes all concrete, hardcoded system pathways.
+
+    # Locates the exact directory containing app.py file
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
     # Assumes the batch file sits in the exact same directory
@@ -20,10 +19,9 @@ def get_project_paths():
     return script_dir, batch_script, default_venv
 
 def ensure_virtual_environment(venv_dir):
-    """
-    Verifies if the required virtual environment exists. If it is missing, 
-    it programmatically builds it and installs all WhisperX CUDA dependencies.
-    """
+    # Verifies if the required virtual environment exists. If it is missing, 
+    # it builds it and installs all WhisperX CUDA dependencies.
+
     if os.path.exists(venv_dir):
         return True  # Environment exists! Move forward.
 
@@ -48,7 +46,6 @@ def ensure_virtual_environment(venv_dir):
         venv.create(venv_dir, with_pip=True)
         
         # Explicitly locate the pip executable inside the newly created environment
-        # This allows us to target this environment without dealing with terminal 'activate' commands!
         pip_exe = os.path.join(venv_dir, "Scripts", "pip.exe")
         
         # Step 2: Clear out default CPU-only PyTorch configurations to prevent system conflicts

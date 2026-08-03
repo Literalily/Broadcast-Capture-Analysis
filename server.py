@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks #(see #*3)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +8,7 @@ import os
 import re
 import json
 import subprocess
+from datetime import datetime
 
 DATE_PATTERN = re.compile(r"(19\d{2}|20\d{2}|2100)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])")
 
@@ -31,9 +32,8 @@ def score_text(text: str):
 _subtitle_cache = {}
 
 def get_subtitle_data(file_path: str):
-    # Reads subtitle JSON file from disk and returns its overall sentiment score. 
+    # Reads subtitle JSON file from disk and returns its overall sentiment score.
     # Returns None on any read/parse error rather than raising, so one bad file can't break the whole broadcast listing.
-    
     try:
         mtime = os.path.getmtime(file_path)
     except OSError as e:
@@ -73,9 +73,9 @@ def get_subtitle_data(file_path: str):
         print(f"Warning: could not read/score {file_path}: {e}")
         return None, []
 
+# Enable CORS so your local HTML file dashboard can talk to this server safely
 app = FastAPI()
 
-# Enable CORS so your local HTML file dashboard can talk to this server safely
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -101,7 +101,6 @@ if not os.path.exists(broadcast_dir):
 if os.path.exists(broadcast_dir):
     app.mount("/Broadcast-Data", StaticFiles(directory=broadcast_dir), name="broadcast-data")
     
-    
 # HTML Page Routes
 @app.get("/")
 @app.get("/index.html")
@@ -111,6 +110,10 @@ def get_dashboard():
 @app.get("/page2.html")
 def get_page2():
     return FileResponse(os.path.join(script_dir, "page2.html"))
+
+@app.get("/page3.html")
+def get_page3():
+    return FileResponse(os.path.join(script_dir, "page3.html"))
 
 # API Endpoints
 @app.get("/api/broadcast-data") #removed async because it was causing problems (see #*1)
@@ -150,7 +153,7 @@ def get_broadcast_data():
             clean_rel = rel_path.replace(os.sep, '/')
             web_path = f"/Broadcast-Data/{clean_rel}"
 
-            if ext in ['mp4', 'mkv', 'mov', 'avi', 'ts', 'm4v', 'mp3', 'wav', 'flac']:
+            if ext in ['mp4', 'mkv', 'mov', 'avi', 'ts', 'm4v', 'mp3', 'wav', 'm4a', 'flac']:
                 file_map[unique_key]["videoPath"] = web_path
             elif ext == 'json':
                 file_map[unique_key]["subtitlePath"] = web_path
@@ -205,6 +208,12 @@ class SentimentRequest(BaseModel):
 class TranscriptionRequest(BaseModel):
     input_path: str
     hf_token: str
+    
+class LiveCaptureRequest(BaseModel):
+    station_name: str
+    stream_url: str
+    duration: int
+    hf_token: str
 
 @app.post("/api/sentiment")
 def analyze_sentiment(data: SentimentRequest):
@@ -212,17 +221,22 @@ def analyze_sentiment(data: SentimentRequest):
     
 @app.post("/api/transcribe")
 async def start_transcription(data: TranscriptionRequest):
+    # clean up the incoming input directory string
     input_dir = data.input_path.strip('"').strip("'")
     if not os.path.isdir(input_dir):
         raise HTTPException(status_code=400, detail="Provided broadcast folder path does not exist.")
     
+    # automatically determine output path and script location
     output_dir = input_dir
     batch_script = os.path.join(script_dir, "WhisperXDiarize.bat")
     venv_dir = os.path.join(script_dir, "whisperx-env")
     
-    if not os.path.exists(venv_dir) or not os.path.exists(batch_script):
-        raise HTTPException(status_code=500, detail="Backend execution script or environment missing.")
-
+    if not os.path.exists(venv_dir):
+        raise HTTPException(status_code=500, detail="Python virtual environment 'whisperx-env' missing.")
+    
+    if not os.path.exists(batch_script):
+        raise HTTPException(status_code=500, detail="Core execution batch script asset missing.")
+    
     try:
         # Popen fires the process in the background, allowing the browser to immediately get a success confirmation instead of freezing/timing out.
         subprocess.Popen([batch_script, input_dir, output_dir, data.hf_token, venv_dir], shell=True)
@@ -230,18 +244,75 @@ async def start_transcription(data: TranscriptionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# Background worker for handling Live Streams and auto-handoff
+def capture_and_transcribe(station_name: str, stream_url: str, duration: int, hf_token: str):
+    # Determine the appropriate media container based on the stream source
+    ext = "mp4"
+    if "rte.ie" in stream_url:
+        ext = "mp3"
+    elif "audio" in stream_url or "bbc_radio" in stream_url:
+        ext = "m4a"
+
+    out_dir = os.path.join(broadcast_dir, station_name)
+    os.makedirs(out_dir, exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = os.path.join(out_dir, f"{station_name}_{timestamp}.{ext}")
+    
+    print(f"\n[LIVE INGEST] 🎥 Starting recording: {output_file} for {duration} seconds")
+    
+    # 1. Capture the stream locally using FFmpeg
+    command = [
+        "ffmpeg", "-y",
+        "-i", stream_url,
+        "-t", str(duration),
+        "-c", "copy",
+        output_file
+    ]
+    
+    try:
+        subprocess.run(command, check=True)
+        print(f"[LIVE INGEST] ✅ Recording saved successfully: {output_file}")
+    except subprocess.CalledProcessError as e:
+        print(f"[LIVE INGEST] ❌ Error recording {station_name}: {e}")
+        return
+        
+    # 2. Automatically feed it to the new WhisperXSingle pipeline
+    batch_script = os.path.join(script_dir, "WhisperXSingle.bat")
+    venv_dir = os.path.join(script_dir, "whisperx-env")
+    
+    if os.path.exists(venv_dir) and os.path.exists(batch_script):
+        print(f"[LIVE INGEST] 🤖 Handing off to AI Transcription pipeline for {output_file}...")
+        subprocess.Popen([batch_script, output_file, out_dir, hf_token, venv_dir], shell=True)
+    else:
+        print(f"[LIVE INGEST] ❌ Cannot transcribe: Environment or WhisperXSingle.bat missing.")
+
+@app.post("/api/live-capture")
+async def start_live_capture(data: LiveCaptureRequest, background_tasks: BackgroundTasks):
+    background_tasks.add_task(
+        capture_and_transcribe, 
+        data.station_name, 
+        data.stream_url, 
+        data.duration, 
+        data.hf_token
+    )
+    return {"status": "Live capture initiated", "target": data.station_name}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
     
-    
-#*1) Changed "async def" to standard "def" so FastAPI uses background worker threads. 
-    # I was having repeated errors where the network shows tasks like sentiment analysis and loading files as (Pending) constantly with no progress. 
+#*1) Changed "async def" to standard "def" so FastAPI uses background worker threads.
+    # I was having repeated errors where the network shows tasks like sentiment analysis and loading files as (Pending) constantly with no progress.
     # In FastAPI, when you mark a function as async def, FastAPI expects you to use asynchronous non-blocking code inside it. However, inside get_broadcast_data(), I was running synchronous disk commands.
-   
+  
 #*2) Keyed on modification time, so an edited/re-transcribed file is automatically
     # picked up next time it's requested, while an unchanged file is served straight from memory.
     # This is the fix for /api/broadcast-data being slow: without it, every
     # single request re-reads and re-scores every subtitle file in the whole
     # library from scratch, every time.
     
+#*3) FastAPI's BackgroundTasks feature allows the server to silently record the stream 
+    # using FFmpeg and then transcribe it by executing WhisperXSingle.bat upon completion, 
+    # while still being connected to the dashboard.

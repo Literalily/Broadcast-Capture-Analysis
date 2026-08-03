@@ -14,7 +14,6 @@ function formatVttTimestamp(seconds) {
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
 
-// WebVTT cues can't contain a literal "-->" and shouldn't contain raw "<" so must be replaced
 function escapeVttText(text) {
     return text.replace(/</g, "&lt;").replace(/-->/g, "-- >");
 }
@@ -78,7 +77,7 @@ window.attachSubtitleTrack = attachSubtitleTrack;
 // player, so it can be revoked when a new episode is loaded.
 let currentVttUrl = null;
 
-// Splits the subtitle segment array into smaller, logical character chunks
+// Splits the subtitle segment array into smaller character chunks
 function chunkText(segments, maxChunkChars = 3000) {
     const chunks = [];
     let currentChunk = "";
@@ -112,7 +111,7 @@ async function generateAIOverview(segments, uiContainer) {
             return;
         }
 
-        const maxChunks = allChunks.length; //NOTE TODO: This will analyse the whole transcript. If it's taking too long, reduce this to 10 or so.
+        const maxChunks = allChunks.length; //NOTE LILY: This will analyse the whole transcript. If it's taking too long, reduce maxchunks to 10 or so.
         const chunksToProcess = allChunks.slice(0, maxChunks);
         const summaries = [];
 

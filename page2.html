@@ -13,6 +13,9 @@
 </head>
 
 <body>
+
+    <!-- =-=-=-=-= Header =-=-=-=-= -->
+
     <header class="header">
         <div class="header-logo">
             <div class="logo-icon">📺</div>
@@ -26,24 +29,27 @@
         </div>
     </header>
 
+    <!-- =-=-=-=-= Naviagtion bar =-=-=-=-= -->
+
     <nav>
         <div class="nav-section">Main</div>
         <a href="index.html" class="nav-link">📊 Dashboard</a>
 
         <div class="nav-section">Analytics</div>
         <a href="page2.html" class="nav-link active">📋 Analytics</a>
+
+        <div class="nav-section">Live TV</div>
+        <a href="page3.html" class="nav-link">📺 Live Broadcast Recording</a>
     </nav>
 
-
-    <!-- It gets good from here ===== ===== ===== ===== ===== -->
-
     <div id="page-container">
+
+        <!-- =-=-=-=-= Popup Box for Subtitles =-=-=-=-= -->
 
         <div id="popupOverlay" class="overlay-container">
             <div class="popup-box" style="width: 700px; max-height: 60vh; display: flex; flex-direction: column;">
                 <h2 id="popupTitle" style="color: #d7010d; margin-bottom: 10px;">Subtitles</h2>
 
-                <!-- Scrollable container for the subtitle lines with proper overflow styling -->
                 <div id="popupSubtitleContent"
                     style="flex: 1; max-height: 60vh; overflow-y: auto; text-align: left; background: #f9f9f9; padding: 15px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 15px;">
                     <p style="color: #666; font-style: italic;">No subtitles loaded.</p>
@@ -55,7 +61,8 @@
             </div>
         </div>
 
-        <!-- Popup for videos -->
+        <!-- =-=-=-=-= Popup Box for Video/Audio =-=-=-=-= -->
+
         <div id="videoPopupOverlay" class="overlay-container">
             <div class="popup-box" style="width: 800px; max-height: 75vh; display: flex; flex-direction: column;">
                 <h2 id="videoPopupTitle" style="color: #d7010d; margin-bottom: 10px;">Video</h2>
@@ -71,7 +78,8 @@
             </div>
         </div>
 
-        <!-- Directory Upload Bar -->
+        <!-- =-=-=-=-= DIrectory Info Bar =-=-=-=-= -->
+
         <div class="card" style="height: auto; margin-bottom: 20px;">
             <h3 class="subtitleHeader">📂 Broadcast Directory</h3>
             <p><strong>NOTE: </strong>This may take up to 3 minutes to load. If it has not loaded within that time,
@@ -91,7 +99,9 @@
         </div>
 
         <div class="viewer-container" id="viewer-container">
-            <!-- Filters Card -->
+            
+            <!-- =-=-=-=-= Filter Data Card =-=-=-=-= -->
+
             <div class="card viewer-left" style="height: auto; min-height: 400px;">
                 <h3 class="subtitleHeader">🔍 Filter Data</h3>
                 <div style="margin-top: 15px;">
@@ -123,11 +133,11 @@
                 </div>
             </div>
 
-            <!-- Results Card -->
+            <!-- =-=-=-=-= Subtitle Results Card =-=-=-=-= -->
+
             <div class="card viewer-main" style="height: 800px; overflow-y: auto;">
                 <h3 class="subtitleHeader">📁 Available Broadcasts</h3>
 
-                <!-- This grid will be populated by JavaScript -->
                 <div id="broadcast-results"
                     style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 15px;">
                     <p style="color: #666; font-style: italic;">Awaiting folder selection...</p>
@@ -135,9 +145,10 @@
             </div>
         </div>
 
-        <!-- Keyword Context -->
+        <!-- =-=-=-=-= Keyword Search Card =-=-=-=-= -->
+
         <div class="card viewer-charts">
-            <h3 class="subtitleHeader">🔎 Keyword Context</h3>
+            <h3 class="subtitleHeader">🔎 Keyword Search</h3>
             <p style="color:#666; font-size: 13px; margin-bottom: 15px;">
                 Search for a term across every transcript to see each mention, the surrounding context, and each line's
                 sentiment score.
@@ -152,7 +163,8 @@
             <div id="termMentionsList" style="max-height: 500px; overflow-y: auto;"></div>
         </div>
 
-        <!-- Graph for Keyword Context -->
+        <!-- =-=-=-=-= Line Chart for Keyword Search (only revealled when a word is searched) =-=-=-=-= -->
+
         <div class="card viewer-charts" id="keywordChartCard" style="display: none;">
             <!-- keywordChartCard is used to keep the chart hidden until the user searches for a term -->
             <h3 class="subtitleHeader">📈 Keyword Sentiment Over Time</h3>
@@ -166,7 +178,8 @@
 
         <div id="flex-container">
 
-            <!-- CHarts Card -->
+            <!-- =-=-=-=-= Line Chart - All Sentiments of All Programs over Time =-=-=-=-= -->
+
             <div class="card viewer-charts">
                 <h3 class="subtitleHeader">📈 Program Sentiment Trends Over Time</h3>
                 <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
@@ -178,7 +191,8 @@
                 </div>
             </div>
 
-            <!-- Bar Chart Card -->
+            <!-- =-=-=-=-= Bar Chart - Average Sentiment of Each Broadcast Folder =-=-=-=-= -->
+
             <div class="card viewer-charts">
                 <h3 class="subtitleHeader">📊 Average Sentiment by Folder</h3>
                 <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
@@ -193,7 +207,8 @@
 
     </div>
 
-    <!-- Footer -->
+    <!-- =-=-=-=-= Footer =-=-=-=-= -->
+
     <footer>
         <p>QUB Electronics, Electrical Engineering and Computer Science</p>
     </footer>
@@ -390,6 +405,10 @@
                 player.poster = "assets/NewsAtOneLogo.jpg";
             } else if (folderLower.includes("the late late show")) {
                 player.poster = "assets/TheLateLateShowLogo.jpg";
+            } else if (folderLower.includes("house_of_commons")) {
+                player.poster = "assets/HOCLogo.png";
+            } else if (folderLower.includes("bbc")) { 
+                player.poster = "assets/BBCNewsLogo.png" 
             } else {
                 player.removeAttribute("poster");
             }
@@ -467,7 +486,7 @@
             const termExplorerSummary = document.getElementById("termExplorerSummary");
             const termMentionsList = document.getElementById("termMentionsList");
 
-            // === 1. Handle Folder Selection
+            // Handle Folder Selection
             directoryPicker.addEventListener("change", async (event) => {
                 const files = event.target.files;
                 if (!files || files.length === 0) return;
@@ -524,7 +543,6 @@
                     }
                 }
 
-                // ===== TESTER MIGHT BREAK EVERYTHING EEK ===== 
                 // Analyse all broadcasts first
                 allBroadcastData = Array.from(fileMap.values()).filter(item => item.videoFile);
 

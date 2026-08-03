@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Pipeline</title>
+    <link rel="icon" type="image/x-icon" href="assets/favicon.png" />
+    <link rel="stylesheet" href="css/styles.css">
+    <script type="module" src="js/script.js"></script>
+</head>
+
+<body>
+
+    <!-- =-=-=-=-= Header =-=-=-=-= -->
+
+    <header class="header">
+        <div class="header-logo">
+            <div class="logo-icon">📺</div>
+            <div class="logo-text">Subtitle <span>Live Capture</span></div>
+            <div class="logo-sub">Real-Time Broadcast Subtitle Capture and AI-Driven Analysis System</div>
+        </div>
+
+        <div class="header-footer">
+            <div>QUB Electronics, Electrical Engineering and Computer Science</div>
+            <div class="signature-badge">Lily Crawford</div>
+        </div>
+    </header>
+
+    <!-- =-=-=-=-= Naviagtion Bar =-=-=-=-= -->
+
+    <nav>
+        <div class="nav-section">Main</div>
+        <a href="index.html" class="nav-link">📊 Dashboard</a>
+
+        <div class="nav-section">Analytics</div>
+        <a href="page2.html" class="nav-link">📋 Analytics</a>
+
+        <div class="nav-section">Live TV</div>
+        <a href="page3.html" class="nav-link active">📺 Live Broadcast Recording</a>
+    </nav>
+
+    <div id="page-container">
+        <!-- Live Capture Configuration Card -->
+        <div class="card" style="width: 80%; margin: 20px auto;">
+            <h2 class="subtitleHeader" style="text-align: center;">📡 Launch Live Reading Pipeline</h2>
+            <p class="readMe-text" style="text-align: center;">
+                Select a live broadcast stream below. The system will record the stream for your chosen duration, then
+                automatically pass the captured segment into the AI WhisperX transcription pipeline for subtitling,
+                diarization, and sentiment analysis.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px; align-items: center;">
+                <label for="stationSelect" style="font-weight: bold; color: #333;">Select Network Broadcast:</label>
+                <select id="stationSelect" class="search-input" style="width: 350px; padding: 8px; border-radius: 4px;">
+                    <option value="bbc_ni">BBC One Northern Ireland (TV)</option>
+                    <option value="rte_radio1">RTÉ Radio 1 (Radio)</option>
+                </select>
+
+                <input type="number" id="durationMinutes" class="search-input"
+                    placeholder="Recording Duration (Minutes) e.g., 30"
+                    style="width: 350px; padding: 8px; border-radius: 4px;" value="30" min="1">
+
+                <input type="password" id="liveHfToken" class="search-input" placeholder="HuggingFace Token (hf_...)"
+                    style="width: 350px; padding: 8px; border-radius: 4px;">
+
+                <button id="startCaptureBtn" class="search-button"
+                    style="padding: 10px 20px; font-size: 16px; cursor:pointer; width: 350px; border-radius: 4px; margin-top: 10px;"
+                    onclick="startLiveCapture()">🚀 Start Live Capture & Analysis</button>
+
+                <p id="liveStatusFeedback" style="font-weight:bold; color:blue; text-align: center; margin-top: 10px;">
+                </p>
+            </div>
+        </div>
+
+        <div class="card" style="width: 80%; margin: 20px auto; height: auto;">
+            <div class="broadcasts-container">
+
+                <!-- ===== BOX 1 ===== -->
+                <div class="broadcast-box">
+                    <p>BBC One Northern Ireland (TV)</p>
+                    <video id="my_video_1" class="video-js vjs-fluid vjs-default-skin" controls preload="auto"
+                        data-setup='{}'>
+                        <source
+                            src="https://vs-hls-pushb-uk-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_one_northern_ireland_hd/mobile_wifi_main_hd_abr_v2.m3u8"
+                            type="application/x-mpegURL">
+                    </video>
+                </div>
+
+                <!-- ===== BOX 2 ===== -->
+                <div class="broadcast-box">
+                    <p>RTÉ Radio 1 (Radio)</p>
+                    <video id="my_video_2" class="video-js vjs-fluid vjs-default-skin" controls preload="auto"
+                        data-setup='{}'>
+                        <source src="http://icecast.rte.ie/radio1" type="application/x-mpegURL">
+                    </video>
+                </div>
+
+                <!-- ===== BOX 3 ===== -->
+                <div class="broadcast-box">
+                    <p>x replace with something else x</p>
+                    <video id="my_video_3" class="video-js vjs-fluid vjs-default-skin" controls preload="auto"
+                        data-setup='{}'>
+                        <source
+                            src="http://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8"
+                            type="application/x-mpegURL">
+                    </video>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <footer>
+        <p>QUB Electronics, Electrical Engineering and Computer Science</p>
+    </footer>
+
+    <script>
+        var player = videojs('my_video_1');
+        player.play();
+        var player = videojs('my_video_2');
+        player.play();
+        var player = videojs('my_video_3');
+        player.play();
+
+
+        function showBroadcast(stationName) {
+            // var player = videojs('my_video_1');
+            // player.play();
+            // var player = videojs('my_video_2');
+            // player.play();
+            // var player = videojs('my_video_3');
+            // player.play();
+        }
+
+        async function startLiveCapture() {
+            const station = document.getElementById('stationSelect').value;
+            const durationInput = document.getElementById('durationMinutes').value;
+            const hfToken = document.getElementById('liveHfToken').value;
+            const feedback = document.getElementById('liveStatusFeedback');
+
+            if (!hfToken) {
+                alert("Please specify your Hugging Face developer authentication token for speaker diarization.");
+                return;
+            }
+            if (!durationInput || isNaN(durationInput) || durationInput <= 0) {
+                alert("Please enter a valid recording duration in minutes.");
+                return;
+            }
+
+            const durationSecs = parseInt(durationInput) * 60;
+
+            // Map the station ID to proper folder names and raw stream URLs
+            let stationName = "";
+            let streamUrl = "";
+
+            if (station === "bbc_ni") {
+                stationName = "BBCOneNINews";
+                streamUrl = "https://vs-hls-pushb-uk-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_one_northern_ireland_hd/mobile_wifi_main_hd_abr_v2.m3u8";
+            } else if (station === "rte_radio1") {
+                stationName = "RTERadio1";
+                streamUrl = "http://icecast.rte.ie/radio1";
+            } else if (station === "bbc_radio1") {
+                stationName = "BBCRadio1";
+                streamUrl = "http://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8";
+            }
+
+            feedback.style.color = "blue";
+            feedback.textContent = `Connecting to ${stationName} stream server...`;
+
+            try {
+                // Send the capture task to the FastAPI backend
+                const response = await fetch('http://127.0.0.1:8000/api/live-capture', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        station_name: stationName,
+                        stream_url: streamUrl,
+                        duration: durationSecs,
+                        hf_token: hfToken
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    feedback.style.color = "green";
+                    feedback.textContent = `✅ Success! Live capture initiated for ${stationName}. Check the backend terminal to monitor the download and AI transcription progress.`;
+                    showBroadcast(stationName);
+                } else {
+                    feedback.style.color = "red";
+                    feedback.textContent = `Error: ${data.detail || 'Unknown server error.'}`;
+                }
+            } catch (err) {
+                feedback.style.color = "red";
+                feedback.textContent = "Could not connect to the local Python execution server backend. Try restarting server.py";
+            }
+        }
+    </script>
+</body>
+
+</html>

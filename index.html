@@ -11,6 +11,8 @@
 
 </head>
 
+<!-- =-=-=-=-= Header =-=-=-=-= -->
+
 <body>
     <header class="header">
         <div class="header-logo">
@@ -25,22 +27,25 @@
         </div>
     </header>
 
+    <!-- =-=-=-=-= Navigation Bar =-=-=-=-= -->
+
     <nav>
         <div class="nav-section">Main</div>
         <a href="index.html" class="nav-link active">📊 Dashboard</a>
 
         <div class="nav-section">Analytics</div>
         <a href="page2.html" class="nav-link">📋 Analytics</a>
+
+        <div class="nav-section">Live TV</div>
+        <a href="page3.html" class="nav-link">📺 Live Broadcast Recording</a>
     </nav>
 
-    <!-- ======================================================= -->
     <div id="page-container">
 
-        <!-- Information Bar -->
+        <!-- =-=-=-=-= README Information Bar =-=-=-=-= -->
         <div class="card" style="width: 99%; height: 400px; margin:auto; margin-bottom: 10px; margin-top: 10px;">
             <h2 class="subtitleHeader" style="text-align: center; margin: auto;">📌 About the Project - <em>Real-Time
-                    Broadcast Subtitle Capture & AI-Driven
-                    Analysis System</em></h2>
+                    Broadcast Subtitle Capture & AI-Driven Analysis System</em></h2>
 
 
             <div id="mini-info">
@@ -87,9 +92,11 @@
 
         </div>
 
+        <!-- =-=-=-=-= Dashboard =-=-=-=-= -->
+
         <div class="dashboard-grid">
 
-            <!-- CARD 1 -->
+            <!-- =-=-=-=-= Option 1 - Transcribe Folder =-=-=-=-= -->
             <div class="card">
                 <h3>Option 1: Transcribe Media Folder</h3>
                 <p>Necessary files can be downloaded <strong><a
@@ -99,16 +106,11 @@
 
                 <p><br>Use WhisperX to transcribe a video/audio file.</p>
                 <p>To do this, you must: <br> 1. <strong>Paste the file path of the desired folder to be
-                        transcribed</strong>,
-                    (e.g. "D:\Broadcast
-                    data\radio1\NewsAtOne") <br>Compatible file types: mp4 mkv mov avi m4v ts mp3 wav m4a flac
-                    <br><strong> 2.
-                        Paste your unique Hugging Face token.</strong> If you're not sure how to do this, follow the
-                    instructions
-                    in the README file.
+                        transcribed</strong>, (e.g. "D:\Broadcast data\radio1\NewsAtOne") <br>Compatible file types: mp4
+                    mkv mov avi m4v ts mp3 wav m4a flac
+                    <br><strong> 2. Paste your unique Hugging Face token.</strong> If you're not sure how to do this,
+                    follow the instructions in the README file.
                 </p>
-                <!-- <input type="file" id="webInPath" name="file"
-                    accept=".mp4, .mkv, .mov, .avi, .m4v, .ts, .mp3, .wav, .m4a, .flac" multiple /> -->
                 <input type="text" id="webInPath" placeholder="File path (D:\Media\The Late Late Show)"
                     style="width:300px; padding:6px;">
                 <input type="password" id="webHfToken" placeholder="HuggingFace Token (hf_...)"
@@ -153,12 +155,11 @@
                 }
             </script>
 
-            <!-- CARD 2 -->
+            <!-- =-=-=-=-= Option 2 - Open a folder of files and choose which you'd like to view =-=-=-=-= -->
             <div class="card">
                 <h3>Option 2: Open a subtitle file</h3>
                 <p>Supports JSON files processed through WhisperX. <br>Select the <strong>folder</strong> containing
-                    your
-                    episode(s) - matching video/audio and subtitle files (same name, different extension) are found
+                    your episode(s) - matching video/audio and subtitle files (same name, different extension) are found
                     and paired automatically.</p>
                 <form method="post" enctype="multipart/form-data">
                     <input type="file" id="file" name="file" webkitdirectory directory multiple />
@@ -190,7 +191,8 @@
 
         <div class="viewer-container" id="viewer-container" style="display: none;">
 
-            <!-- TABLE OF CONTENTS -->
+            <!-- =-=-=-=-= Table of Contents =-=-=-=-= -->
+
             <div id="toc-container" class="viewer-left card">
                 <h3>Search:</h3>
                 <div class="search-container">
@@ -201,15 +203,16 @@
                 <ul id="toc-list"></ul>
             </div>
 
-            <!-- CARD 3 - SUBTITLES -->
+            <!-- =-=-=-=-= Subtitles =-=-=-=-= -->
+
             <div class="card viewer-main">
                 <h3>Subtitles</h3>
                 <div id="subtitle-list"></div>
             </div>
 
-            <!-- CARD 4 - VIDEO -->
+            <!-- =-=-=-=-= Video =-=-=-=-= -->
+
             <div class="viewer-sidebar">
-                <!-- VIDEO CARD -->
                 <div class="card media-card">
                     <h3>Video</h3>
                     <video id="subtitleVideo" width="100%" controls>
@@ -217,15 +220,13 @@
                     </video>
                 </div>
 
-                <!-- CARD 5 - ANALYSIS -->
+                <!-- =-=-=-=-= AI Analysis =-=-=-=-= -->
                 <div class="card analysis-card">
                     <h3>Sentiment Analysis</h3>
                     <div id="selected-line-analysis"
                         style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-left: 4px solid #2196F3; border-radius: 4px;">
                         <p><em>Click a subtitle line to analyze its sentiment.</em></p>
                     </div>
-
-                    <!-- The button has been removed -->
                     <p id="result" style="margin-top: 15px;"></p>
 
                     <script>
@@ -239,7 +240,7 @@
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        model: 'phi3', // 'llama3' if you chose that
+                                        model: 'phi3',
                                         prompt: `Analyze the sentiment of this text. Reply with exactly one word: POSITIVE, NEGATIVE, or NEUTRAL. Text: "${text}"`,
                                         stream: false,
                                         options: {
@@ -253,7 +254,7 @@
                                 const data = await response.json();
                                 const label = data.response.trim().toUpperCase();
 
-                                // Apply simple colors based on sentiment
+                                // Apply colors based on sentiment
                                 let color = 'black';
                                 if (label.includes('POSITIVE')) color = 'green';
                                 if (label.includes('NEGATIVE')) color = 'red';
