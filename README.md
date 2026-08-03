@@ -17,10 +17,10 @@ By continuously monitoring live programming, the system automates transcript ext
 ## ✨ Key Features
 
 * **📡 Live Data Ingestion & Processing:** Captures and structures subtitle streams directly from broadcast sources.
-* **🤖 Automated AI Summarization:** Employs local LLMs (Ollama / Phi-3) to condense long transcripts into concise, actionable summaries.
+* **🤖 Automated AI Summarisation:** Employs local LLMs (Ollama / Phi-3) to condense long transcripts into concise, actionable summaries.
 * **📈 Sentiment Analysis Engine:** Tracks emotional tone, positive/negative polarity, and trends across broadcasts using hybrid VADER and LLM scoring pipelines (`-1.0` to `+1.0`).
-* **👥 Speaker Diarization:** Segments and color-codes transcripts by speaker identity for easy reading and visual analysis.
-* **📊 Interactive Web Dashboard:** Built with FastAPI and Chart.js to filter episodes, view timelines, display subtitle files, and analyze sentiment trends over time.
+* **👥 Speaker Diarization:** Segments and colour-codes transcripts by speaker identity for easy reading and visual analysis.
+* **📊 Interactive Web Dashboard:** Built with FastAPI and Chart.js to filter episodes, view timelines, display subtitle files, and analyse sentiment trends over time.
 
 ---
 
@@ -28,9 +28,9 @@ By continuously monitoring live programming, the system automates transcript ext
 
 1. **Capture:** Build a robust, scalable pipeline capable of ingesting live broadcast subtitle streams.
 2. **Structure:** Extract, clean, and structure raw subtitle text into standard JSON format with timestamps.
-3. **Summarize:** Integrate LLM pipelines for instant automated summarization of broadcast episodes.
-4. **Analyze:** Evaluate content sentiment and emotional trajectory across different programs and dates.
-5. **Visualize:** Deliver a web dashboard featuring real-time cards, filtering capabilities, and interactive charts.
+3. **Summarize:** Integrate LLM pipelines for instant automated summarisation of broadcast episodes.
+4. ** Analyse:** Evaluate content sentiment and emotional trajectory across different programs and dates.
+5. ** Visualise:** Deliver a web dashboard featuring real-time cards, filtering capabilities, and interactive charts.
 6. **Evaluate:** Measure system reliability, latency, and analysis accuracy under continuous operation.
 
 ---
@@ -54,7 +54,7 @@ By continuously monitoring live programming, the system automates transcript ext
 ollama run phi3  
 ```
 > [!TIP]
-> You can also use `ollama run llama3` if your computer has a strong graphics card, but phi3 is incredibly fast and highly capable for summarization and sentiment).  
+> You can also use `ollama run llama3` if your computer has a strong graphics card, but phi3 is incredibly fast and highly capable for summarisation and sentiment.  
 
 ### === **FFmpeg** ===
 1) When installing FFmpeg, ensure you install a ‘full-build’ version instead of the ‘essentials’ version, which does not include libzvbi. The full-build version of FFmpeg can be found on [GitHub](https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest)
@@ -65,10 +65,10 @@ The version I used was called Ffmpeg-master-latest-win64-gpl-shared.zip.
 5) Click "Environment Variables."
 6) Under "System variables," select Path and click "Edit."
 7) Click "New" and add the path to the bin folder (e.g., C:\FFmpeg\bin).
-8) Click "OK" on all dialogs to apply the changes.
+8) Click "OK" on all dialogues to apply the changes.
 9) FFmpeg should now be successfully installed.
 
-## Using 'Option 1: Transcribe Media Folder':
+## Setting up and Using the System
 1) Open your terminal or command prompt in the directory and run the app setup script directly with the command:  
 ```
 py -3.11 app.py  
