@@ -68,6 +68,12 @@ The version I used was called Ffmpeg-master-latest-win64-gpl-shared.zip.
 8) Click "OK" on all dialogues to apply the changes.
 9) FFmpeg should now be successfully installed.
 
+### === **Hugging Face Access Token** ===  
+1) Create a HuggingFace account [here](https://huggingface.co/join)
+2) Accept the user agreement for the speaker-diarization-community-1 model
+3) Generate an access token (read) from [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+4) This token must be kept completely private
+
 ## Setting up and Using the System
 1) Open your terminal or command prompt in the directory and run the app setup script directly with the command:  
 ```
@@ -80,6 +86,4 @@ This will trigger its automated setup sequence.
 4) Wait. It will take a few minutes to download the massive CUDA PyTorch libraries and WhisperX binaries.
 5) Once app.py says `SUCCESS: WhisperX virtual environment created`, it will ask you for a target folder. Just type exit to close it.
 6) Double-click run.bat to launch your web server.
-8) In the web interface, paste the folder path in which your file to be transcribed is (note - it must be a folder, not an individual file. Working on fixing this)
-9) Paste your unique Hugging Face token (if you're unsure how to get this, follow the instructions in [A Guide to Extracting Subtitles.pdf](https://github.com/user-attachments/files/29846177/A.Guide.to.Extracting.Subtitles.pdf)
-10) Now the "Launch AI Pipeline" button will work perfectly.
+8) The web interface should open automatically. Please allow some time for all files to fully load.
