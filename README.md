@@ -29,8 +29,8 @@ By continuously monitoring live programming, the system automates transcript ext
 1. **Capture:** Build a robust, scalable pipeline capable of ingesting live broadcast subtitle streams.
 2. **Structure:** Extract, clean, and structure raw subtitle text into standard JSON format with timestamps.
 3. **Summarize:** Integrate LLM pipelines for instant automated summarisation of broadcast episodes.
-4. ** Analyse:** Evaluate content sentiment and emotional trajectory across different programs and dates.
-5. ** Visualise:** Deliver a web dashboard featuring real-time cards, filtering capabilities, and interactive charts.
+4. **Analyse:** Evaluate content sentiment and emotional trajectory across different programs and dates.
+5. **Visualise:** Deliver a web dashboard featuring real-time cards, filtering capabilities, and interactive charts.
 6. **Evaluate:** Measure system reliability, latency, and analysis accuracy under continuous operation.
 
 ---
