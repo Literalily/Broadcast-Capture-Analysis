@@ -43,7 +43,7 @@
     <div id="page-container">
 
         <!-- =-=-=-=-= README Information Bar =-=-=-=-= -->
-        <div class="card" style="width: 99%; height: 400px; margin:auto; margin-bottom: 10px; margin-top: 10px;">
+        <div class="card" style="width: 99%; height: 100%; margin:auto; margin-bottom: 10px; margin-top: 10px;">
             <h2 class="subtitleHeader" style="text-align: center; margin: auto;">📌 About the Project - <em>Real-Time
                     Broadcast Subtitle Capture & AI-Driven Analysis System</em></h2>
 
@@ -58,8 +58,7 @@
                 </h5>
             </div>
 
-            <br>
-            <hr><br>
+            <br><hr><br>
 
             <p class="readMe-text">This system is designed to ingest live
                 broadcast television subtitle streams, convert them into structured textual datasets, and leverage
@@ -105,29 +104,71 @@
                         instructions in the README file.</a></p>
 
                 <p><br>Use WhisperX to transcribe a video/audio file.</p>
-                <p>To do this, you must: <br> 1. <strong>Paste the file path of the desired folder to be
+                <p>To do this, you must: <br><br> 1. <strong>Paste the file path of the desired folder to be
                         transcribed</strong>, (e.g. "D:\Broadcast data\radio1\NewsAtOne") <br>Compatible file types: mp4
                     mkv mov avi m4v ts mp3 wav m4a flac
-                    <br><strong> 2. Paste your unique Hugging Face token.</strong> If you're not sure how to do this,
+                    <br><br><strong> 2. Paste your unique Hugging Face token.</strong> If you're not sure how to do
+                    this,
                     follow the instructions in the README file.
+                    <br><br><strong> 3. Choose which WhisperX model you would like to use. </strong>
+                    <br>To reduce GPU memory requirements, try use a smaller ASR model e.g. base (can affect quality).
+                    <br><br><strong>NOTE: </strong> Only one transcription should be run at any time, otherwise the GPU will be overloaded.
                 </p>
                 <input type="text" id="webInPath" placeholder="File path (D:\Media\The Late Late Show)"
                     style="width:300px; padding:6px;">
+
                 <input type="password" id="webHfToken" placeholder="HuggingFace Token (hf_...)"
                     style="width:250px; padding:6px;">
-                <button id="runBtn" onclick="sendTranscriptionJob()" style="padding:6px 12px; cursor:pointer;">Launch AI
-                    Pipeline</button>
+
+                <label>Choose a WhisperX Model (large-v3 recommended):</label>
+                <div class="dropdown">
+                    <button id="modelBtn" onclick="selectModel()" class="dropbtn">View All <b> + </b></button> 
+                    <div id="myDropdown" class="dropdown-content">
+                        <input type="text" placeholder="Search.." id="myInput" onkeyup="filterFunction()">
+                        <a href="javascript:void(0)" onclick="chooseModel('large-v3')">large-v3</a>
+                        <a href="javascript:void(0)" onclick="chooseModel('large-v2')">large-v2</a>
+                        <a href="javascript:void(0)" onclick="chooseModel('medium')">medium</a>
+                        <a href="javascript:void(0)" onclick="chooseModel('small')">small</a>
+                        <a href="javascript:void(0)" onclick="chooseModel('base')">base</a>
+                        <a href="javascript:void(0)" onclick="chooseModel('tiny')">tiny</a>
+                    </div>
+                </div>
+
+                <button id="runBtn" onclick="sendTranscriptionJob()">Launch AI Pipeline</button>
                 <p id="statusFeedback" style="font-weight:bold; color:blue;"></p>
             </div>
 
             <script>
+                /* When the user clicks on the button, toggle between hiding and showing the dropdown content */
+                function selectModel() {
+                    document.getElementById("myDropdown").classList.toggle("show");
+                }
+
+                window.onclick = function (event) {
+                    if (!event.target.matches('.dropbtn') && !event.target.closest('.dropdown-content')) {
+                        var dropdowns = document.getElementsByClassName("dropdown-content");
+                        for (var i = 0; i < dropdowns.length; i++) {
+                            var openDropdown = dropdowns[i];
+                            if (openDropdown.classList.contains('show')) {
+                                openDropdown.classList.remove('show');
+                            }
+                        }
+                    }
+                }
+
+                function chooseModel(modelName) {
+                    selectedWhisperModel = modelName;
+                    document.getElementById("modelBtn").innerHTML = modelName + " <sup>v</sup>";
+                    document.getElementById("myDropdown").classList.remove("show");
+                }
+
                 async function sendTranscriptionJob() {
                     const inputPath = document.getElementById('webInPath').value;
                     const hfToken = document.getElementById('webHfToken').value;
                     const feedback = document.getElementById('statusFeedback');
 
-                    if (!inputPath || !hfToken) {
-                        alert("Please specify both folder locations and your HF developer authentication token.");
+                    if (!inputPath || !hfToken || !selectedWhisperModel) {
+                        alert("Please specify folder locations, your HF token, and select a WhisperX model.");
                         return;
                     }
 
@@ -137,7 +178,11 @@
                         const response = await fetch('http://127.0.0.1:8000/api/transcribe', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ input_path: inputPath, hf_token: hfToken })
+                            body: JSON.stringify({
+                                input_path: inputPath,
+                                hf_token: hfToken,
+                                model: selectedWhisperModel
+                            })
                         });
 
                         const data = await response.json();
@@ -162,17 +207,19 @@
                     your episode(s) - matching video/audio and subtitle files (same name, different extension) are found
                     and paired automatically.</p>
                 <form method="post" enctype="multipart/form-data">
-                    <input type="file" id="file" name="file" webkitdirectory directory multiple />
+                    <input type="file" id="file" style="cursor: pointer;" name="file" webkitdirectory directory
+                        multiple />
                     <p id="fileLoadStatus" style="margin-top: 8px; font-weight: bold;"></p>
 
                     <div id="episodePickerContainer" style="display: none; margin-top: 10px;">
                         <label for="episodePicker"><strong>Multiple episodes found - choose one:</strong></label><br>
-                        <select id="episodePicker" style="width: 300px; padding: 6px; margin-top: 5px;"></select>
+                        <select id="episodePicker"
+                            style="width: 300px; padding: 6px; margin-top: 5px; cursor: pointer;"></select>
                     </div>
 
                     <!-- Toggle start/end times -->
                     <br>
-                    <label class="switch">
+                    <label class="switch" style="cursor: pointer;">
                         <input type="checkbox" id="mySwitch">
                         <span class="slider round"></span>
                     </label>
@@ -180,7 +227,7 @@
 
                     <!-- Toggle speaker visibility -->
                     <br>
-                    <label class="switch">
+                    <label class="switch" style="cursor: pointer;">
                         <input type="checkbox" id="mySpeakerSwitch">
                         <span class="slider round"></span>
                     </label>

@@ -118,7 +118,7 @@ async function generateAIOverview(segments, uiContainer) {
         uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Generating insights locally with Ollama...</p>`;
 
         for (let i = 0; i < chunksToProcess.length; i++) {
-            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 *All Chunks=${allChunks.length} *   Analysing chunk ${i + 1} of${chunksToProcess.length}...</p>`;
+            uiContainer.innerHTML = `<p class="ai-overview-status">🤖 Analysing chunk ${i + 1} of${chunksToProcess.length}...</p>`;
 
             const response = await fetch('http://localhost:11434/api/generate', {
                 method: 'POST',

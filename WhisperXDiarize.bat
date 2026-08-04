@@ -10,6 +10,11 @@ set "IN=%~1"
 set "OUT=%~2"
 set "HF_TOKEN=%~3"
 set "VENV=%~4"
+set "MODEL=%~5"
+set "BATCH_SIZE=%~6"
+
+:: Fallback to smaller batch size default if nothing is passed in
+if "%BATCH_SIZE%"=="" set "BATCH_SIZE=4"
 
 echo ==========================================
 echo Activating Environment: %VENV%
@@ -43,7 +48,7 @@ for %%E in (mp4 mkv mov avi m4v ts mp3 wav m4a flac) do (
             echo Running transcription and speaker diarization pipelines...
             echo ============================================================
 
-            whisperx "%%F" --model large-v3 --device cuda --language en --batch_size 2 --compute_type int8 --diarize --hf_token "%HF_TOKEN%" --output_dir "%OUT%" --output_format json --print_progress True
+            whisperx "%%F" --model "%MODEL%" --device cuda --language en --batch_size "%BATCH_SIZE%" --compute_type float16 --diarize --hf_token "%HF_TOKEN%" --output_dir "%OUT%" --output_format json --print_progress True
 
             if errorlevel 1 (
                 echo ERROR: WhisperX execution structural failure on %%~nxF

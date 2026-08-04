@@ -55,7 +55,7 @@
                     <p style="color: #666; font-style: italic;">No subtitles loaded.</p>
                 </div>
 
-                <button class="btn-close-popup" onclick="toggleSubtitlesPopup()">
+                <button class="btn-close-popup" style="cursor: pointer;" onclick="toggleSubtitlesPopup()">
                     Close
                 </button>
             </div>
@@ -72,7 +72,7 @@
                     Your browser does not support the video tag.
                 </video>
 
-                <button class="btn-close-popup" onclick="closeVideoPopup()">
+                <button class="btn-close-popup" style="cursor: pointer;" onclick="closeVideoPopup()">
                     Close
                 </button>
             </div>
@@ -87,7 +87,7 @@
             <p id="autoLoadStatus" style="margin-bottom: 15px; color: #666;">
                 🔎 Searching for a <strong>Broadcast-Data</strong> folder next to the server...
             </p>
-            <button id="refreshServerDataBtn" class="search-button" style="border-radius: 6px; margin-bottom: 10px;">🔄
+            <button id="refreshServerDataBtn" class="search-button" style="border-radius: 6px; margin-bottom: 10px; cursor: pointer;">🔄
                 Refresh from Server</button>
 
             <details style="margin-top: 5px;">
@@ -99,7 +99,7 @@
         </div>
 
         <div class="viewer-container" id="viewer-container">
-            
+
             <!-- =-=-=-=-= Filter Data Card =-=-=-=-= -->
 
             <div class="card viewer-left" style="height: auto; min-height: 400px;">
@@ -107,7 +107,7 @@
                 <div style="margin-top: 15px;">
 
                     <label>Folder / Program:</label>
-                    <select id="folderFilter" class="search-input" style="border-radius: 6px;">
+                    <select id="folderFilter" class="search-input" style="border-radius: 6px; cursor: pointer;">
                         <option value="all">View All</option>
                     </select>
 
@@ -119,17 +119,17 @@
                     <input type="text" id="subtitleKeywordFilter" class="search-input" style="border-radius: 6px;"
                         placeholder="Search transcript content...">
 
-                    <label style="margin-top: 15px;">Date From:</label>
+                    <label style="margin-top: 15px; cursor: pointer;">Date From:</label>
                     <input type="date" id="dateStartFilter" class="search-input" style="border-radius: 6px;">
 
-                    <label style="margin-top: 15px;">Date To:</label>
+                    <label style="margin-top: 15px; cursor: pointer;">Date To:</label>
                     <input type="date" id="dateEndFilter" class="search-input" style="border-radius: 6px;">
 
                     <button id="applyFiltersBtn" class="search-button"
-                        style="width: 100%; margin-top: 25px; border-radius: 6px;">Apply Filters</button>
+                        style="width: 100%; margin-top: 25px; border-radius: 6px; cursor: pointer;">Apply Filters</button>
 
                     <button id="clearFiltersBtn" class="search-button"
-                        style="width: 100%; margin-top: 25px; border-radius: 6px;">Clear Filters</button>
+                        style="width: 100%; margin-top: 25px; border-radius: 6px; cursor: pointer;">Clear Filters</button>
                 </div>
             </div>
 
@@ -157,7 +157,7 @@
                 <input type="text" id="termExplorerInput" class="search-input" style="flex: 1; border-radius: 6px;"
                     placeholder="e.g. Covid, Brexit, Climate...">
                 <button id="termExplorerBtn" class="search-button"
-                    style="border-radius: 6px; white-space: nowrap;">Analyse Term</button>
+                    style="border-radius: 6px; white-space: nowrap; cursor: pointer;">Analyse Term</button>
             </div>
             <p id="termExplorerSummary" style="color: #666; font-size: 13px; margin-bottom: 10px;"></p>
             <div id="termMentionsList" style="max-height: 500px; overflow-y: auto;"></div>
@@ -405,10 +405,10 @@
                 player.poster = "assets/NewsAtOneLogo.jpg";
             } else if (folderLower.includes("the late late show")) {
                 player.poster = "assets/TheLateLateShowLogo.jpg";
-            } else if (folderLower.includes("house_of_commons")) {
+            } else if (folderLower.includes("house_of_commons") || folderLower.includes("house of commons")) {
                 player.poster = "assets/HOCLogo.png";
-            } else if (folderLower.includes("bbc")) { 
-                player.poster = "assets/BBCNewsLogo.png" 
+            } else if (folderLower.includes("bbc")) {
+                player.poster = "assets/BBCNewsLogo.png"
             } else {
                 player.removeAttribute("poster");
             }
@@ -505,21 +505,28 @@
                     const baseName = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
                     const extension = fileName.split('.').pop().toLowerCase();
                     const uniqueKey = `${folderName}/${baseName}`;
-                    let dateStr = "00-00-0000";
 
                     if (!fileMap.has(uniqueKey)) {
-                        // regex which picks out the date from the title (the file names all have the date time in them)
-                        // (1900-2099) (01-12) (01-31) _ (0000-2400)
+                        let dateStr = "00-00-0000";
 
-                        const dateRegex = /(19\d{2}|20\d{2}|2100)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/;
+                        const regexDDMMYYYY = /(0[1-9]|[12]\d|3[01])[_-](0[1-9]|1[0-2])[_-](19\d{2}|20\d{2}|2100)(?!\d)/;
+                        const regexYYYYMMDD_delim = /(19\d{2}|20\d{2}|2100)[_-](0[1-9]|1[0-2])[_-](0[1-9]|[12]\d|3[01])(?!\d)/;
+                        const regexDDMMYY = /(0[1-9]|[12]\d|3[01])[_-](0[1-9]|1[0-2])[_-](\d{2})(?!\d)/;
+                        const regexCompact = /(19\d{2}|20\d{2}|2100)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/;
 
-                        const match = baseName.match(dateRegex);
-                        if (match) {
-                            dateStr = `${match[1]}-${match[2]}-${match[3]}`; //YYYY-MM-DD
-                            // dateStr = `${match[3]}-${match[2]}-${match[1]}`; //DD-MM-YYYY
+                        const matchDDMMYYYY = baseName.match(regexDDMMYYYY);
+                        const matchYYYYMMDD_delim = baseName.match(regexYYYYMMDD_delim);
+                        const matchDDMMYY = baseName.match(regexDDMMYY);
+                        const matchCompact = baseName.match(regexCompact);
 
-                        } else {
-                            dateStr = "00-00-0000";
+                        if (matchDDMMYYYY) {
+                            dateStr = `${matchDDMMYYYY[3]}-${matchDDMMYYYY[2]}-${matchDDMMYYYY[1]}`; // YYYY-MM-DD
+                        } else if (matchYYYYMMDD_delim) {
+                            dateStr = `${matchYYYYMMDD_delim[1]}-${matchYYYYMMDD_delim[2]}-${matchYYYYMMDD_delim[3]}`; // YYYY-MM-DD
+                        } else if (matchDDMMYY) {
+                            dateStr = `20${matchDDMMYY[3]}-${matchDDMMYY[2]}-${matchDDMMYY[1]}`; // YYYY-MM-DD
+                        } else if (matchCompact) {
+                            dateStr = `${matchCompact[1]}-${matchCompact[2]}-${matchCompact[3]}`; // YYYY-MM-DD
                         }
 
                         fileMap.set(uniqueKey, {
@@ -527,7 +534,7 @@
                             series: baseName,
                             date: dateStr,
                             sentiment: null,
-                            sentimentAttempted: false, //added so that if sentiment analysis fails, it says so instead of saying 'Analysising...' forever
+                            sentimentAttempted: false,
                             videoFile: null,
                             subtitleFile: null,
                             cachedSegments: null
@@ -821,13 +828,13 @@
 
                     <!-- Action Buttons -->
                     <div style="display: flex; gap: 10px; margin-top: 5px;">
-                        <button class="ai-btn" ${!hasSubtitles ? "disabled" : ""} onclick="triggerCardAIOverview(${globalIndex})">✨ Generate AI Overview</button>
-                        <button class="ai-btn" style="background-color: #00b4d8;" ${!hasSubtitles ? "disabled" : ""} onclick="loadAndShowSubtitles(${globalIndex})">📝 Show Subtitles</button>
-                        <button class="ai-btn" style="background-color: #333;" ${!hasVideo ? "disabled" : ""} onclick="viewBroadcastVideo(${globalIndex})">🎬 View Video</button>
+                        <button class="ai-btn" style="cursor: pointer;" ${!hasSubtitles ? "disabled" : ""} onclick="triggerCardAIOverview(${globalIndex})">✨ Generate AI Overview</button>
+                        <button class="ai-btn" style="background-color: #00b4d8; cursor: pointer;" ${!hasSubtitles ? "disabled" : ""} onclick="loadAndShowSubtitles(${globalIndex})">📝 Show Subtitles</button>
+                        <button class="ai-btn" style="background-color: #333; cursor: pointer;" ${!hasVideo ? "disabled" : ""} onclick="viewBroadcastVideo(${globalIndex})">🎬 View Video</button>
                     </div>
                     `;
                     resultsContainer.appendChild(card);
-                });
+                }); 
             }
 
             // Reads every subtitle file (server hosted or picked locally) and returns the set of "folde/series" keys whose transcript contains the given keyword

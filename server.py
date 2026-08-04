@@ -10,12 +10,47 @@ import json
 import subprocess
 from datetime import datetime
 
-DATE_PATTERN = re.compile(r"(19\d{2}|20\d{2}|2100)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])")
+# Format 1: DD_MM_YYYY or DD-MM-YYYY (4-digit year, e.g., 04_02_2026)
+DATE_PATTERN_DDMMYYYY = re.compile(
+    r"(0[1-9]|[12]\d|3[01])[_-](0[1-9]|1[0-2])[_-](19\d{2}|20\d{2}|2100)(?!\d)"
+)
+
+# Format 2: YYYY_MM_DD or YYYY-MM-DD (e.g., 2026_02_04)
+DATE_PATTERN_YYYYMMDD_DELIM = re.compile(
+    r"(19\d{2}|20\d{2}|2100)[_-](0[1-9]|1[0-2])[_-](0[1-9]|[12]\d|3[01])(?!\d)"
+)
+
+# Format 3: DD_MM_YY or DD-MM-YY (2-digit year, e.g., 04_02_26_12_00_00)
+DATE_PATTERN_DDMMYY = re.compile(
+    r"(0[1-9]|[12]\d|3[01])[_-](0[1-9]|1[0-2])[_-](\d{2})(?!\d)"
+)
+
+# Format 4: YYYYMMDD continuous digits (e.g., 20260204)
+DATE_PATTERN_COMPACT = re.compile(
+    r"(19\d{2}|20\d{2}|2100)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])"
+)
 
 def extract_date_from_name(base_name: str) -> str:
-    match = DATE_PATTERN.search(base_name)
-    if match and len(match.groups()) == 3:
-        return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
+    # 1. Check DD_MM_YYYY (4-digit year first to avoid matching 2026 as 2020)
+    match_ddmmyyyy = DATE_PATTERN_DDMMYYYY.search(base_name)
+    if match_ddmmyyyy:
+        return f"{match_ddmmyyyy.group(3)}-{match_ddmmyyyy.group(2)}-{match_ddmmyyyy.group(1)}"
+
+    # 2. Check YYYY_MM_DD
+    match_yyyymmdd = DATE_PATTERN_YYYYMMDD_DELIM.search(base_name)
+    if match_yyyymmdd:
+        return f"{match_yyyymmdd.group(1)}-{match_yyyymmdd.group(2)}-{match_yyyymmdd.group(3)}"
+
+    # 3. Check DD_MM_YY (2-digit year)
+    match_ddmmyy = DATE_PATTERN_DDMMYY.search(base_name)
+    if match_ddmmyy:
+        return f"20{match_ddmmyy.group(3)}-{match_ddmmyy.group(2)}-{match_ddmmyy.group(1)}"
+
+    # 4. Check continuous YYYYMMDD
+    match_compact = DATE_PATTERN_COMPACT.search(base_name)
+    if match_compact:
+        return f"{match_compact.group(1)}-{match_compact.group(2)}-{match_compact.group(3)}"
+
     return "00-00-0000"
 
 # VADER analyzer instance
@@ -208,6 +243,8 @@ class SentimentRequest(BaseModel):
 class TranscriptionRequest(BaseModel):
     input_path: str
     hf_token: str
+    model: str = "large-v3" #safe default fallback
+    batch_size: int = 4 #safe deault fallback
     
 class LiveCaptureRequest(BaseModel):
     station_name: str
@@ -224,23 +261,38 @@ async def start_transcription(data: TranscriptionRequest):
     # clean up the incoming input directory string
     input_dir = data.input_path.strip('"').strip("'")
     if not os.path.isdir(input_dir):
-        raise HTTPException(status_code=400, detail="Provided broadcast folder path does not exist.")
+        raise HTTPException(status_code=400, 
+                            detail="Provided broadcast folder path does not exist.")
     
     # automatically determine output path and script location
     output_dir = input_dir
     batch_script = os.path.join(script_dir, "WhisperXDiarize.bat")
     venv_dir = os.path.join(script_dir, "whisperx-env")
+    model_name = data.model if data.model else "large-v3"
+    batch_size = data.batch_size if data.batch_size else 4
     
     if not os.path.exists(venv_dir):
-        raise HTTPException(status_code=500, detail="Python virtual environment 'whisperx-env' missing.")
+        raise HTTPException(status_code=500, 
+                            detail="Python virtual environment 'whisperx-env' missing.")
     
     if not os.path.exists(batch_script):
-        raise HTTPException(status_code=500, detail="Core execution batch script asset missing.")
+        raise HTTPException(status_code=500, 
+                            detail="Core execution batch script asset missing.")
     
     try:
         # Popen fires the process in the background, allowing the browser to immediately get a success confirmation instead of freezing/timing out.
-        subprocess.Popen([batch_script, input_dir, output_dir, data.hf_token, venv_dir], shell=True)
-        return {"status": "Processing initiated", "output_folder": output_dir}
+        subprocess.Popen([batch_script, 
+                          input_dir, 
+                          output_dir, 
+                          data.hf_token, 
+                          venv_dir,
+                          model_name,
+                          str(batch_size)], shell=True)
+        return {"status": "Processing initiated", 
+                "output_folder": output_dir,
+                "model_used": model_name,
+                "batch_size_used": batch_size,
+                }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
