@@ -69,10 +69,10 @@ The version I used was called Ffmpeg-master-latest-win64-gpl-shared.zip.
 9) FFmpeg should now be successfully installed.
 
 ### === **Hugging Face Access Token** ===  
-1) Create a HuggingFace account [here](https://huggingface.co/join)
-2) Accept the user agreement for the speaker-diarization-community-1 model
-3) Generate an access token (read) from [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
-4) This token must be kept completely private
+1) Create a HuggingFace account [here](https://huggingface.co/join).
+2) Accept the user agreement for the speaker-diarization-community-1 model.
+3) Generate an access token (read) from [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
+4) This token must be kept completely private.
 
 ## Setting up and Using the System
 1) Open your terminal or command prompt in the directory and run the app setup script directly with the command:  
@@ -82,8 +82,10 @@ py -3.11 app.py
 This will trigger its automated setup sequence.  
 > [!IMPORTANT]
 > WhisperX requires a Python version >=3.10 or <3.14. When running this command, substitute '`3.11`' with your Python version. Using Python 3.14 will cause the system to only partially install the whisperx environment.  
-3) Press y when it asks if you want to run the automatic installation.
-4) Wait. It will take a few minutes to download the massive CUDA PyTorch libraries and WhisperX binaries.
-5) Once app.py says `SUCCESS: WhisperX virtual environment created`, it will ask you for a target folder. Just type exit to close it.
-6) Double-click run.bat to launch your web server.
-8) The web interface should open automatically. Please allow some time for all files to fully load.
+
+2) Press y when it asks if you want to run the automatic installation.
+3) Wait. It will take a few minutes to download the massive CUDA PyTorch libraries and WhisperX binaries.
+4) Once app.py says `SUCCESS: WhisperX virtual environment created`, it will ask you for a target folder. Just type exit to close it.
+5) Double-click run.bat to launch your web server.
+6) The web interface should open automatically in your web browser. Please allow some time for all files to fully load.
+7) To close the program completely, navigate to the command line script running in the background and press CTRL+C, then 'Y' to terminate the batch process. 
