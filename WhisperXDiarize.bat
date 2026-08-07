@@ -43,16 +43,7 @@ for %%E in (mp4 mkv mov avi m4v ts mp3 wav m4a flac) do (
     for %%F in ("%IN%\*.%%E") do (
         if exist "%%F" (
             set FOUND=1
-            echo ============================================================
-            echo Ingesting: %%~nxF 
-            echo Running transcription and speaker diarization pipelines...
-            echo ============================================================
-
-            whisperx "%%F" --model "%MODEL%" --device cuda --language en --batch_size "%BATCH_SIZE%" --compute_type float16 --diarize --hf_token "%HF_TOKEN%" --output_dir "%OUT%" --output_format json --print_progress True
-
-            if errorlevel 1 (
-                echo ERROR: WhisperX execution structural failure on %%~nxF
-            )
+            call :TranscribeFile "%%F"
         )
     )
 )
@@ -65,3 +56,35 @@ echo.
 echo ==========================================
 echo Batch execution processing complete.
 echo ==========================================
+goto :eof
+
+
+:: ============================================================
+:: SUBROUTINE: Transcribes a single file and calculates duration
+:: ============================================================
+:TranscribeFile
+set "FILE_PATH=%~1"
+set "FILE_NAME=%~nx1"
+
+echo ============================================================
+echo Ingesting: %FILE_NAME% 
+echo Running transcription and speaker diarization pipelines...
+echo ============================================================
+
+:: Record Start Time
+set "startTime=%time%"
+
+whisperx "%FILE_PATH%" --model "%MODEL%" --device cuda --language en --batch_size "%BATCH_SIZE%" --compute_type float16 --diarize --hf_token "%HF_TOKEN%" --output_dir "%OUT%" --output_format json --print_progress True
+
+if errorlevel 1 (
+    echo ERROR: WhisperX execution structural failure on %FILE_NAME%
+)
+
+:: Record End Time & Calculate Exact Elapsed Time
+set "endTime=%time%"
+
+powershell -Command "$s = '%startTime%'.Trim(); $e = '%endTime%'.Trim(); $start = [datetime]::Parse($s); $end = [datetime]::Parse($e); if ($end -lt $start) { $end = $end.AddDays(1) }; $elapsed = $end - $start; Write-Host ('[TIMER] Processing time for ' + '%FILE_NAME%' + ': ' + $elapsed.ToString('hh\:mm\:ss\.fff'))"
+
+echo ============================================================
+echo.
+goto :eof

@@ -120,8 +120,9 @@
                 <input type="password" id="webHfToken" placeholder="HuggingFace Token (hf_...)"
                     style="width:250px; padding:6px;">
 
-                <label>Choose a WhisperX Model (large-v3 recommended):</label>
+                
                 <div class="dropdown">
+                    <p>Choose a WhisperX Model (large-v3 recommended):</p>
                     <button id="modelBtn" onclick="selectModel()" class="dropbtn">View All <b> + </b></button> 
                     <div id="myDropdown" class="dropdown-content">
                         <input type="text" placeholder="Search.." id="myInput" onkeyup="filterFunction()">
@@ -158,7 +159,7 @@
 
                 function chooseModel(modelName) {
                     selectedWhisperModel = modelName;
-                    document.getElementById("modelBtn").innerHTML = modelName + " <sup>v</sup>";
+                    document.getElementById("modelBtn").innerHTML = modelName + " <b> + </b>";
                     document.getElementById("myDropdown").classList.remove("show");
                 }
 

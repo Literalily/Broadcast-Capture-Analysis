@@ -8,6 +8,8 @@
     <link rel="icon" type="image/x-icon" href="assets/favicon.png" />
     <link rel="stylesheet" href="css/styles.css">
     <script type="module" src="js/script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <!-- for the charts to plot time correctly -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
 
 </head>
@@ -87,7 +89,8 @@
             <p id="autoLoadStatus" style="margin-bottom: 15px; color: #666;">
                 🔎 Searching for a <strong>Broadcast-Data</strong> folder next to the server...
             </p>
-            <button id="refreshServerDataBtn" class="search-button" style="border-radius: 6px; margin-bottom: 10px; cursor: pointer;">🔄
+            <button id="refreshServerDataBtn" class="search-button"
+                style="border-radius: 6px; margin-bottom: 10px; cursor: pointer;">🔄
                 Refresh from Server</button>
 
             <details style="margin-top: 5px;">
@@ -126,10 +129,12 @@
                     <input type="date" id="dateEndFilter" class="search-input" style="border-radius: 6px;">
 
                     <button id="applyFiltersBtn" class="search-button"
-                        style="width: 100%; margin-top: 25px; border-radius: 6px; cursor: pointer;">Apply Filters</button>
+                        style="width: 100%; margin-top: 25px; border-radius: 6px; cursor: pointer;">Apply
+                        Filters</button>
 
                     <button id="clearFiltersBtn" class="search-button"
-                        style="width: 100%; margin-top: 25px; border-radius: 6px; cursor: pointer;">Clear Filters</button>
+                        style="width: 100%; margin-top: 25px; border-radius: 6px; cursor: pointer;">Clear
+                        Filters</button>
                 </div>
             </div>
 
@@ -834,7 +839,7 @@
                     </div>
                     `;
                     resultsContainer.appendChild(card);
-                }); 
+                });
             }
 
             // Reads every subtitle file (server hosted or picked locally) and returns the set of "folde/series" keys whose transcript contains the given keyword
@@ -944,27 +949,17 @@
                     return;
                 }
 
-                // Extract unique sorted dates for X-axis labels
-                const xLabels = [...new Set(validData.map(item => item.date))];
+                // get earliest/latest dates across all broadcasts
+                const earliestDate = validData[0].date;
+                const latestDate = validData[validData.length - 1].date;
 
                 // Extract unique folders
                 const uniqueFolders = [...new Set(validData.map(item => item.folder))];
 
-                // Build a Chart.js dataset for each folder line
-                const datasets = uniqueFolders.map((folderName, index) => {
+                // Build a Chart.js dataset for each folder line {x: date, y: sentiment}
+                const datasets = uniqueFolders.map((folderName) => {
                     const folderItems = validData.filter(item => item.folder === folderName);
-
-                    // Create a lookup table for quick date-to-sentiment matching
-                    const dateSentimentMap = {};
-                    folderItems.forEach(item => {
-                        dateSentimentMap[item.date] = item.sentiment;
-                    });
-
-                    // Map xLabels to sentiment values or null if show didn't air that day
-                    const dataPoints = xLabels.map(date =>
-                        dateSentimentMap[date] !== undefined ? dateSentimentMap[date] : null
-                    );
-
+                    const dataPoints = folderItems.map(item => ({ x: item.date, y: item.sentiment }));
                     const lineColor = getFolderColor(folderName);
 
                     return {
@@ -976,7 +971,7 @@
                         lineTension: 0.4,
                         pointRadius: 5,
                         pointHoverRadius: 7,
-                        spanGaps: true // Connects line segments across missing dates
+                        spanGaps: true //connects line segments across missing dates so it's a bit more honest
                     };
                 });
 
@@ -989,7 +984,6 @@
                 myChartInstance = new Chart(ctx, {
                     type: "line",
                     data: {
-                        labels: xLabels,
                         datasets: datasets
                     },
                     options: {
@@ -1018,6 +1012,22 @@
                                 }
                             }],
                             xAxes: [{
+                                type: "time",
+                                time: {
+                                    parser: "YYYY-MM-DD",
+                                    tooltipFormat: "ll",
+                                    displayFormats: {
+                                        day: "D MMM YYYY",
+                                        week: "D MMM YYYY",
+                                        month: "MMM YYYY",
+                                        quarter: "MMM YYYY",
+                                        year: "YYYY"
+                                    }
+                                },
+                                ticks: {
+                                    min: earliestDate,
+                                    max: latestDate
+                                },
                                 scaleLabel: {
                                     display: true,
                                     labelString: "Broadcast Date"
@@ -1047,14 +1057,17 @@
 
                 const ctx = canvas.getContext("2d");
 
-                // sort chronologically and get unique dates for the x-axis
+                // sort chronologically
                 validResults.sort((a, b) => a.date.localeCompare(b.date));
-                const xLabels = [...new Set(validResults.map(r => r.date))];
+
+                // Earliest/latest dates across all matches
+                const earliestDate = validResults[0].date;
+                const latestDate = validResults[validResults.length - 1].date;
 
                 // extract unique folders for coloured lines
                 const uniqueFolders = [...new Set(validResults.map(r => r.folder))];
 
-                const datasets = uniqueFolders.map((folderName, index) => {
+                const datasets = uniqueFolders.map((folderName) => {
                     const folderItems = validResults.filter(r => r.folder === folderName);
 
                     //average sentiment if the word is mentioned multiple times in one episode
@@ -1067,10 +1080,10 @@
                         dateSentimentMap[item.date].count += 1;
                     });
 
-                    // map averages to the x-axis labels
-                    const dataPoints = xLabels.map(date => {
-                        return dateSentimentMap[date] ? (dateSentimentMap[date].sum / dateSentimentMap[date].count) : null;
-                    });
+                    const dataPoints = Object.keys(dateSentimentMap).map(date => ({
+                        x: date,
+                        y: dateSentimentMap[date].sum / dateSentimentMap[date].count
+                    }));
 
                     // match line colours with those in the other charts
                     const lineColor = getFolderColor(folderName);
@@ -1095,7 +1108,6 @@
                 keywordChartInstance = new Chart(ctx, {
                     type: "line",
                     data: {
-                        labels: xLabels,
                         datasets: datasets
                     },
                     options: {
@@ -1118,6 +1130,22 @@
                                 scaleLabel: { display: true, labelString: `Sentiment for "${term}"` }
                             }],
                             xAxes: [{
+                                type: "time",
+                                time: {
+                                    parser: "YYYY-MM-DD",
+                                    tooltipFormat: "ll",
+                                    displayFormats: {
+                                        day: "D MMM YYYY",
+                                        week: "D MMM YYYY",
+                                        month: "MMM YYYY",
+                                        quarter: "MMM YYYY",
+                                        year: "YYYY"
+                                    }
+                                },
+                                ticks: {
+                                    min: earliestDate,
+                                    max: latestDate
+                                },
                                 scaleLabel: { display: true, labelString: "Broadcast Date" }
                             }]
                         }

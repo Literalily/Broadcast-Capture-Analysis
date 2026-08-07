@@ -138,13 +138,13 @@ if os.path.exists(broadcast_dir):
     
 # HTML Page Routes
 @app.get("/")
-@app.get("/index.html")
-def get_dashboard():
-    return FileResponse(os.path.join(script_dir, "index.html"))
-
 @app.get("/page2.html")
 def get_page2():
     return FileResponse(os.path.join(script_dir, "page2.html"))
+
+@app.get("/index.html")
+def get_dashboard():
+    return FileResponse(os.path.join(script_dir, "index.html"))
 
 @app.get("/page3.html")
 def get_page3():
